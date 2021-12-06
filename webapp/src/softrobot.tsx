@@ -36,7 +36,7 @@ export namespace dialog {
       header: lf("Enter IP address of your device"),
       hasCloseIcon: false,
       agreeLbl: lf("Pair device"),
-      agreeIcon: "usb",
+      agreeIcon: "wifi",
       className: "downloaddialog",
       buttons,
       initialValue: softrobot.socket.ip_address
@@ -1474,14 +1474,15 @@ export namespace component {
         this.state.pairStatus === softrobot.socket.PairStatus.Pairing
           ? lf("Pairing")
           : [
-              <i className="icon usb" key="usb-icon"></i>,
+              <i className="icon wifi" key="wifi-icon"></i>,
               this.state.pairStatus === softrobot.socket.PairStatus.Paired
                 ? this.state.nuibotId + " " + lf("Paired")
                 : lf("Pair")
             ];
       const buttonClass = classNames(
         "ui",
-        "button",
+        "small",
+        "collapse-button",
         {
           green: this.state.pairStatus === softrobot.socket.PairStatus.Paired,
           grey: this.state.pairStatus !== softrobot.socket.PairStatus.Paired
@@ -1496,12 +1497,14 @@ export namespace component {
           onClick={this.state.pairStatus === softrobot.socket.PairStatus.Paired ? this.props.unpair : this.props.pair}
           title={
             this.state.pairStatus === softrobot.socket.PairStatus.Unpaired
-              ? lf("Unpair Nuibot")
-              : lf("Pair your Nuibot")
+              ? lf("Pair your Nuibot")
+              : lf("Unpair Nuibot")
           }
+          icon = {this.state.pairStatus === softrobot.socket.PairStatus.Pairing ? undefined : 'wifi'} 
+          text = {this.state.pairStatus === softrobot.socket.PairStatus.Pairing ? lf("Pairing") : 
+            this.state.pairStatus === softrobot.socket.PairStatus.Paired ? lf("Paired") : lf("Pair")}
           disabled={this.state.pairStatus === softrobot.socket.PairStatus.Pairing}
         >
-          {content}
         </sui.Button>
       );
     }

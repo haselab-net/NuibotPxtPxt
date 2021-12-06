@@ -2058,7 +2058,7 @@ export class ProjectView
         })
 
         softrobot.socket.onRcvRecJSFile.push(function () {
-            core.infoNotification(lf("Download success"));
+            core.infoNotification(lf("Upload success"));
         })
 
         softrobot.message_command.onRcvCIResetSensorMessage.push(function() {

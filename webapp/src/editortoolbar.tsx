@@ -200,7 +200,7 @@ export class EditorToolbar extends data.Component<ISettingsProps, EditorToolbarS
     const showSave = !readOnly && !isController && !targetTheme.saveInMenu && !tutorial && !disableFileAccessinMaciOs;
     const compile = pxt.appTarget.compile;
     const compileBtn = compile.hasHex || compile.saveAsPNG;
-    const compileTooltip = lf("Download your code to the {0}", targetTheme.boardName);
+    const compileTooltip = lf("Upload your code to the {0}", targetTheme.boardName);
     const compileLoading = !!compiling;
     const runTooltip = running ? lf("Stop the simulator") : lf("Start the simulator");
     const restartTooltip = lf("Restart the simulator");
@@ -432,7 +432,7 @@ export class EditorToolbar extends data.Component<ISettingsProps, EditorToolbarS
                     <div className="ui vertical icon small buttons">
                       <EditorToolbarButton
                         icon={`${collapsed ? "toggle up" : "toggle down"}`}
-                        className={`collapse-button ${collapsed ? "collapsed" : ""}`}
+                        className={`small collapse-button ${collapsed ? "collapsed" : ""}`}
                         title={collapseTooltip}
                         ariaLabel={lf("{0}, {1}", collapseTooltip, collapsed ? lf("Collapsed") : "Expanded")}
                         onButtonClick={this.toggleCollapse}
@@ -625,7 +625,22 @@ export class EditorToolbar extends data.Component<ISettingsProps, EditorToolbarS
                   </div>
                 </div>
               )}
-              <div className={`column twelve wide right aligned`}>
+              <div className={`column right aligned`}>
+                {this.state.paired && softRobot.compile.isNative ? (
+                  <div className="ui icon small buttons">
+                  <EditorToolbarButton
+                    icon={downloadIcon}
+                    className={`primary large download-button ${downloadButtonClasses}`}
+                    text={downloadText}
+                    title={compileTooltip}
+                    onButtonClick={this.softRobotCompile}
+                    view="computer"
+                  />
+                  </div>
+                ) : (
+                  undefined
+                )}
+
                 <sr.component.WrappedPairButton />
                 {this.state.paired ? <sr.component.ControlModeDropdown setControlMode={this.setControlMode}></sr.component.ControlModeDropdown> : undefined}
                 {showUndoRedo ? (
@@ -758,7 +773,7 @@ export class EditorToolbar extends data.Component<ISettingsProps, EditorToolbarS
                     <div className="row" style={compileBtn ? { paddingTop: 0 } : {}}>
                       <div className="column">
                         <div
-                          className={`ui item large right ${
+                          className={`ui item small right ${
                             showSave ? "labeled" : ""
                           } fluid input projectname-input projectname-tablet`}
                           title={lf("Pick a name for your project")}
@@ -880,9 +895,9 @@ export class EditorToolbar extends data.Component<ISettingsProps, EditorToolbarS
             </div>
           )}
         </div>
-        <div className="column computer only" style={{ padding: 0}}>
+        <div className="column computer only" style={{padding: '0.4em'}}>
           <div className="sr-oneline-container">
-            <div id="downloadArea" className="ui column items">
+            <div className="ui column">
               {headless ? (
                 <div className="ui item">
                   <div className="ui icon large buttons">
@@ -893,7 +908,7 @@ export class EditorToolbar extends data.Component<ISettingsProps, EditorToolbarS
                             ? "toggle " + (isRtl ? "left" : "right")
                             : "toggle " + (isRtl ? "right" : "left")
                         }`}
-                        className={`large collapse-button ${collapsed ? "collapsed" : ""}`}
+                        className={`small collapse-button ${collapsed ? "collapsed" : ""}`}
                         title={collapseTooltip}
                         onButtonClick={this.toggleCollapse}
                         view="computer"
@@ -964,7 +979,7 @@ export class EditorToolbar extends data.Component<ISettingsProps, EditorToolbarS
                     {
                       // download button for soft robot in editor tool bar
                     }
-                    {this.state.paired && softRobot.compile.isNative ? (
+                    {/*this.state.paired && softRobot.compile.isNative ? (
                       <EditorToolbarButton
                         icon={downloadIcon}
                         className={`primary large download-button ${downloadButtonClasses}`}
@@ -974,7 +989,7 @@ export class EditorToolbar extends data.Component<ISettingsProps, EditorToolbarS
                       />
                     ) : (
                       undefined
-                    )}
+                    )*/}
                     {softRobot.test ? <sr.dialog.TestButton /> : undefined}
                   </div>
                 </div>
@@ -983,7 +998,7 @@ export class EditorToolbar extends data.Component<ISettingsProps, EditorToolbarS
                   {showCollapsed && !pairingButton ? (
                     <EditorToolbarButton
                       icon={`toggle ${collapseEditorTools ? (isRtl ? "left" : "right") : isRtl ? "right" : "left"}`}
-                      className={`large collapse-button ${collapsed ? "collapsed" : ""}`}
+                      className={`small collapse-button ${collapsed ? "collapsed" : ""}`}
                       title={collapseTooltip}
                       onButtonClick={this.toggleCollapse}
                       view="computer"
@@ -1006,7 +1021,7 @@ export class EditorToolbar extends data.Component<ISettingsProps, EditorToolbarS
                   {compileBtn ? (
                     <EditorToolbarButton
                       icon={downloadIcon}
-                      className={`primary huge fluid download-button ${downloadButtonClasses}`}
+                      className={`primary download-button ${downloadButtonClasses}`}
                       text={downloadText}
                       title={compileTooltip}
                       onButtonClick={this.compile}
@@ -1018,10 +1033,10 @@ export class EditorToolbar extends data.Component<ISettingsProps, EditorToolbarS
                   {
                     // download button for soft robot in editor tool bar
                   }
-                  {this.state.paired && softRobot.compile.isNative ? (
+                  {/* this.state.paired && softRobot.compile.isNative ? (
                     <EditorToolbarButton
                       icon={downloadIcon}
-                      className={`primary huge fluid download-button ${downloadButtonClasses}`}
+                      className={`primary download-button ${downloadButtonClasses}`}
                       text={downloadText}
                       title={compileTooltip}
                       onButtonClick={this.softRobotCompile}
@@ -1029,7 +1044,7 @@ export class EditorToolbar extends data.Component<ISettingsProps, EditorToolbarS
                     />
                   ) : (
                     undefined
-                  )}
+                  )*/}
                   {softRobot.test ? <sr.dialog.TestButton /> : undefined}
                 </div>
               )}
@@ -1037,7 +1052,7 @@ export class EditorToolbar extends data.Component<ISettingsProps, EditorToolbarS
             {showProjectRename ? (
               <div className="column left aligned">
                 <div
-                  className={`ui right ${showSave ? "labeled" : ""} input projectname-input projectname-computer`}
+                  className={`ui small right ${showSave ? "labeled" : ""} input projectname-input projectname-computer`}
                   title={lf("Pick a name for your project")}
                 >
                   <label htmlFor="fileNameInput2" id="fileNameInputLabel2" className="accessible-hidden">
@@ -1070,6 +1085,20 @@ export class EditorToolbar extends data.Component<ISettingsProps, EditorToolbarS
               undefined
             )}
             <div className="column right aligned">
+              {this.state.paired && softRobot.compile.isNative ? (
+                <div className="ui icon small buttons">
+                <EditorToolbarButton
+                  icon={downloadIcon}
+                  className={`primary large download-button ${downloadButtonClasses}`}
+                  text={downloadText}
+                  title={compileTooltip}
+                  onButtonClick={this.softRobotCompile}
+                  view="computer"
+                />
+                </div>
+              ) : (
+                undefined
+              )}
               <sr.component.WrappedPairButton />
               {this.state.paired ? (
                 <sr.component.ControlModeDropdown

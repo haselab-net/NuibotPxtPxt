@@ -122,38 +122,19 @@ export class SimulatorToolbar extends data.Component<SimulatorProps, SimulatorSt
         const collapseTooltip = lf("Hide the simulator");
 
         return <aside className="ui item grid centered portrait hide simtoolbar" role="complementary" aria-label={lf("Simulator toolbar")}>
-            <div className={`ui icon tiny buttons ${isFullscreen ? 'massive' : ''}`} style={{ padding: "0" }}>
+            <div className={`ui icon large buttons ${isFullscreen ? 'massive' : ''}`} style={{ padding: "0" }}>
                 {make ? <sui.Button disabled={debugging} icon='configure' className="secondary" title={makeTooltip} onClick={this.openInstructions} /> : undefined}
                 {run ? <sui.Button disabled={debugging} key='runbtn' className={`play-button ${isRunning ? "stop" : "play"}`} icon={isRunning ? "stop" : "play green"} title={runTooltip} onClick={this.startStopSimulator} /> : undefined}
                 {restart ? <sui.Button disabled={debugging} key='restartbtn' className={`restart-button`} icon="refresh" title={restartTooltip} onClick={this.restartSimulator} /> : undefined}
                 {trace ? <sui.Button key='trace' className={`trace-button ${tracing ? 'orange' : ''}`} icon="xicon turtle" title={traceTooltip} onClick={this.toggleTrace} /> : undefined}
             </div>
-            <div className={`ui icon tiny buttons ${isFullscreen ? 'massive' : ''}`} style={{ padding: "0" }}>
+            <div className={`ui icon large buttons ${isFullscreen ? 'massive' : ''}`} style={{ padding: "0" }}>
                 {audio ? <sui.Button key='mutebtn' className={`mute-button ${isMuted ? 'red' : ''}`} icon={`${isMuted ? 'volume off' : 'volume up'}`} title={muteTooltip} onClick={this.toggleMute} /> : undefined}
             </div>
-            <div className={`ui icon tiny buttons ${isFullscreen ? 'massive' : ''}`} style={{ padding: "0" }}>
+            <div className={`ui icon large buttons ${isFullscreen ? 'massive' : ''}`} style={{ padding: "0" }}>
                 {collapse && !isFullscreen ? <sui.Button key='collapsebtn' className={`collapse-button`} icon={`icon toggle left`} title={collapseTooltip} onClick={this.toggleSimulatorCollapse} /> : undefined}
                 {fullscreen ? <sui.Button key='fullscreenbtn' className={`fullscreen-button`} icon={`xicon ${isFullscreen ? 'fullscreencollapse' : 'fullscreen'}`} title={fullscreenTooltip} onClick={this.toggleSimulatorFullscreen} /> : undefined}
             </div>
-            {/* { this.state.paired ? */ true ?
-                <div className={`ui icon tiny buttons ${isFullscreen ? 'massive' : ''}`} style={{ padding: "0" }}>
-                    <sui.Button key='motorcalibration' title={lf("Calibrate motors")} onClick={this.calibrationSoftRobot}><i className="compress icon"></i></sui.Button>
-                    <sui.Button key='robotstateinspectorbtn' title={lf("Show Nuibot information")} onClick={() => core.confirmAsync({
-                        header: lf("Robot State Inspector"),
-                        hasCloseIcon: true,
-                        hideCancel: true,
-                        hideAgree: true,
-                        jsx: React.createElement(sr.dialog.robotStateInspector.RobotStateInspector, {})
-                    })}><i className="list icon"></i></sui.Button>
-                    <sui.Button key='settingiteminput' title={lf("Change settings")} onClick={() => core.confirmAsync({
-                        header: lf("Settings"),
-                        hasCloseIcon: true,
-                        hideCancel: true,
-                        hideAgree: true,
-                        jsx: React.createElement(sr.dialog.robotSettings.RobotSettingsDialog, {nvsSettings: softrobot.device.robotInfo.nvsSettings})
-                    })}><i className="wrench icon"></i></sui.Button>
-                </div> : undefined
-            }
         </aside >;
     }
 }
