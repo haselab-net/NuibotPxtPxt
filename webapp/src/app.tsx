@@ -2211,7 +2211,7 @@ export class ProjectView
                     meta.blocksWidth = blocksSize.width;
                 }
                 return workspace.anonymousPublishAsync(epkg.header, files, meta)
-                    .then(inf => inf.id)
+                    .then((inf:any) => inf.id)
             }).finally(() => {
                 this.setState({ publishing: false })
             })

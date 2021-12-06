@@ -307,7 +307,7 @@ export function pokeRepoAsync(parsed: commandParser.ParsedCommand): Promise<void
     }
     if (parsed.flags["u"]) data.getkey = true
     return Cloud.privatePostAsync("pokerepo", data)
-        .then(resp => {
+        .then((resp:any) => {
             console.log(resp)
         })
 }
@@ -403,7 +403,7 @@ function uploadCrowdinAsync(branch: string, prj: string, key: string, p: string,
 export function apiAsync(path: string, postArguments?: string): Promise<void> {
     if (postArguments == "delete") {
         return Cloud.privateDeleteAsync(path)
-            .then(resp => console.log(resp))
+            .then((resp:any) => console.log(resp))
     }
 
     if (postArguments == "-") {
@@ -423,7 +423,7 @@ export function apiAsync(path: string, postArguments?: string): Promise<void> {
         url: path,
         data: dat
     })
-        .then(resp => {
+        .then((resp:any) => {
             if (resp.json)
                 console.log(JSON.stringify(resp.json, null, 2))
             else console.log(resp.text)
@@ -441,7 +441,7 @@ function uploadFileAsync(parsed: commandParser.ParsedCommand) {
         content: buf.toString("base64"),
         contentType: mime
     })
-        .then(resp => {
+        .then((resp:any) => {
             console.log(resp)
         })
 }

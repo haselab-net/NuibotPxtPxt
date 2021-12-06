@@ -5,4 +5,5 @@ interface JQuery {
     dimmer: any;
 }
 
-declare var require: any;
+//declare var require: any;
+declare var require: NodeRequire;

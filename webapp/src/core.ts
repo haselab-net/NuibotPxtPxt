@@ -404,14 +404,14 @@ export function apiAsync(path: string, data?: any) {
     return (data ?
         Cloud.privatePostAsync(path, data) :
         Cloud.privateGetAsync(path))
-        .then(resp => {
+        .then((resp:any) => {
             console.log("*")
             console.log("*******", path, "--->")
             console.log("*")
             console.log(resp)
             console.log("*")
             return resp
-        }, err => {
+        }, (err:any) => {
             console.log(err.message)
         })
 }

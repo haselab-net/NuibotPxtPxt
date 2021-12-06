@@ -723,10 +723,10 @@ export function showReportAbuseAsync(pubId?: string) {
                 Cloud.privatePostAsync(`${id}/abusereports`, {
                     text: reasonInput.value
                 })
-                    .then(res => {
+                    .then((res:any) => {
                         core.infoNotification(lf("Report sent. Thank you!"))
                     })
-                    .catch(e => {
+                    .catch((e:any) => {
                         if (e.statusCode == 404)
                             core.warningNotification(lf("Oops, we could not find this script."))
                         else
