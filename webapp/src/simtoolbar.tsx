@@ -5,6 +5,7 @@ import * as data from "./data";
 import * as sui from "./sui";
 import * as sr from "./softrobot"
 import * as core from "./core"
+import * as mobx from "mobx"
 
 type ISettingsProps = pxt.editor.ISettingsProps;
 
@@ -23,9 +24,6 @@ export class SimulatorToolbar extends data.Component<SimulatorProps, SimulatorSt
             paired: false
         }
 
-        softrobot.socket.onNuibotGoOnline.push(() => this.setState({paired: true}));
-        softrobot.socket.onNuibotGoOffline.push(() => this.setState({paired: false}));
-
         this.toggleTrace = this.toggleTrace.bind(this);
         this.toggleMute = this.toggleMute.bind(this);
         this.restartSimulator = this.restartSimulator.bind(this);
@@ -34,6 +32,14 @@ export class SimulatorToolbar extends data.Component<SimulatorProps, SimulatorSt
         this.toggleSimulatorFullscreen = this.toggleSimulatorFullscreen.bind(this);
         this.toggleSimulatorCollapse = this.toggleSimulatorCollapse.bind(this);
         this.calibrationSoftRobot = this.calibrationSoftRobot.bind(this);
+    }
+
+    private pairDisposer: mobx.IReactionDisposer
+    componentDidMount() {
+        this.pairDisposer = mobx.autorun(() => this.setState({paired: softrobot.socket.paired.get() == softrobot.socket.PairStatus.Paired}))
+    }
+    componentWillUnmount() {
+        this.pairDisposer()
     }
 
     openInstructions() {
@@ -132,15 +138,15 @@ export class SimulatorToolbar extends data.Component<SimulatorProps, SimulatorSt
             {/* { this.state.paired ? */ true ?
                 <div className={`ui icon tiny buttons ${isFullscreen ? 'massive' : ''}`} style={{ padding: "0" }}>
                     <sui.Button key='motorcalibration' title={lf("Calibrate motors")} onClick={this.calibrationSoftRobot}><i className="compress icon"></i></sui.Button>
-                    <sui.Button key='robotstateinspectorbtn' title={lf("Open robot state inspector")} onClick={() => core.confirmAsync({
+                    <sui.Button key='robotstateinspectorbtn' title={lf("Show Nuibot information")} onClick={() => core.confirmAsync({
                         header: lf("Robot State Inspector"),
                         hasCloseIcon: true,
                         hideCancel: true,
                         hideAgree: true,
                         jsx: React.createElement(sr.dialog.robotStateInspector.RobotStateInspector, {})
                     })}><i className="list icon"></i></sui.Button>
-                    <sui.Button key='settingiteminput' title={lf("Change hardware settings")} onClick={() => core.confirmAsync({
-                        header: lf("Hardware Settings"),
+                    <sui.Button key='settingiteminput' title={lf("Change settings")} onClick={() => core.confirmAsync({
+                        header: lf("Settings"),
                         hasCloseIcon: true,
                         hideCancel: true,
                         hideAgree: true,

@@ -25,4 +25,11 @@ namespace softrobot.editor {
     export let showWebhookTester: (header: string, url: string, params: string[][]) => void = (header: string, url: string, params: string[][]) => {
         console.warn("function showWebhookTester should be overwritten");
     };
+
+    /**
+     * Show dialog to listening MQTT
+     */
+    export let showMQTTTester: (nuibotId: string, event: string) => void = (nuibotId: string, event: string) => {
+        console.warn("function showMQTTTester should be overwritten");
+    };
 }

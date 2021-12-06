@@ -4,63 +4,6 @@
  */
 
 namespace softrobot.movement {
-    // storage
-    export interface IMapContents<T> {
-        [key: number]: T
-    }
-    export class MyMap<T> {
-        private MAX_SIZE = 100;
-        public contents: IMapContents<T> = {};
-        private size = 0;
-        private currentKey: number = -1;
-        private keyGenerator(): number {
-        while (!!this.contents[++this.currentKey]) {
-            if (this.currentKey == this.MAX_SIZE - 1) this.currentKey = -1;
-        }
-        return this.currentKey;
-        }
-        /**
-        * add content to the map
-        * @param content the content to be added into the map
-        * @returns the key of the added content, return -1 if its full
-        */
-        push(content: T): number {
-        if (this.size == this.MAX_SIZE) return -1;
-        let key = this.keyGenerator();
-        this.contents[key] = content;
-        return key;
-        }
-        /**
-        * delete one content from the map
-        * @param key the key of the content
-        */
-        remove(key: number) {
-        this.contents[key] = undefined;
-        }
-        /**
-        * clear all contents in the map
-        */
-        clear() {
-        this.contents = {};
-        }
-        /**
-        * get the content in the map with key
-        * @param key the key of the content
-        */
-        find(key: number): T {
-        return this.contents[key];
-        }
-        /**
-        * map
-        * @param callback callback function called for every content
-        */
-        map(callback: (val?: T, key?: number) => void) {
-        for (let key in this.contents) {
-            if (!!this.contents[key]) callback(this.contents[key], parseInt(key));
-        }
-        }
-    }
-
     // keyframe to specify pose for all motors
     export interface IKeyframe {
         pose: number[];         // poses for all motors
@@ -85,7 +28,7 @@ namespace softrobot.movement {
         private static BLOCK_QUERY_TIME = 1000; // can not send two query in BLOCK_QUERY_TIME (ms)
 
         private queue: IKeyframe[] = [];
-        private blockQuery: boolean = false;    // unable to query to prevent too much query packet 
+        private blockQuery: boolean = false;    // unable to query to prevent too much query packet
         private isWantQuery: boolean = false;   // when [blockQuery] is true and want query after block
         private remoteVacancy: number = 0;
         private lastTimeWriteCount = 0;
@@ -93,10 +36,10 @@ namespace softrobot.movement {
         /**
          *  sync visual representation of motors with Nuibot
          */
-        public onCountReadMinChange: MyMap<(id: number) => void> = new MyMap<(id: number) => void>();
+        public onCountReadMinChange: util.MyMap<(id: number) => void> = new util.MyMap<(id: number) => void>();
         private curCountReadMin = -1;
         private p_keyframeId_start: number = 0;
-        private p_keyframeId_send: number = 0;      // id of the next keyframe to be sent 
+        private p_keyframeId_send: number = 0;      // id of the next keyframe to be sent
         private p_keyframeId_end: number = 0;
         private MAP_SIZE: number = SendKeyframeQueue.MAX_SIZE + SendKeyframeQueue.REMOTE_MAX_SIZE + 1;
         private writeCountMap: number[] = new Array<number>(this.MAP_SIZE);       // map: (key: keyframe id --- val: count of write)
@@ -254,8 +197,10 @@ namespace softrobot.movement {
     // movement tok
     // used to send all movement commands
     export class MovementSender {
-        private static MAX_NOCCUPIED = 5;  // the maximum number of used space in movement list for every motor
-        private static OCCUPATION_QUERY_INTERVAL_MS = 1000;           // the maximum interval for query nOccupied
+        private static MAX_MOTOR_KEYFRAME_COUNT = 256;  // the maximum number of motor keyframes allowed to use in movement manager
+        private static MAX_MOVEMENT_KEYFRAME_COUNT = 32; // the maximum number of keyframes allowed to use in movement manager per movement
+
+        private static OCCUPATION_QUERY_INTERVAL_MS = 500;           // the maximum interval for query nOccupied
         private queryTimer: number;
         private waitResponse: boolean = false;
         constructor() {
@@ -284,9 +229,14 @@ namespace softrobot.movement {
         private canAddKeyframe(data: packet_command.IMovementData): boolean {
             if (this.waitResponse) return false;
 
-            // check the occupation of motors
-            for (let i = 0; i < data.motorCount; i++) {
-                if (device.robotState.movementState.nOccupied[data.motorId[i]] >= MovementSender.MAX_NOCCUPIED) return false;
+            // validate total count of keyframes
+            const count = device.robotState.movementState.nOccupied.reduce((a, b) => a + b, 0);
+            if (count >= MovementSender.MAX_MOTOR_KEYFRAME_COUNT) return false;
+
+            // validate count of keyframes of movement
+            const idList = device.robotState.movementState.movementManagerMovementIds;
+            for (let i = 0; i < idList.length; i++) {
+                if (idList[i] == data.movementId && device.robotState.movementState.movementManagerKeyframeCount[i] >= MovementSender.MAX_MOVEMENT_KEYFRAME_COUNT) return false;
             }
 
             // check if paused
@@ -303,16 +253,46 @@ namespace softrobot.movement {
                     this.waitResponse = true;
                     break;
                 case command.CommandIdMovement.CI_M_PAUSE_MOV:
+                    if (device.robotState.movementState.isInQueue(data.movementId) === -1 || device.robotState.movementState.isPaused(data.movementId) >= 0) return false;
                     device.robotState.movementState.pause(data.movementId);
                     break;
                 case command.CommandIdMovement.CI_M_RESUME_MOV:
+                    if (device.robotState.movementState.isInQueue(data.movementId) === -1 || device.robotState.movementState.isPaused(data.movementId) === -1) return false;
                     device.robotState.movementState.resume(data.movementId);
+                    break;
+                case command.CommandIdMovement.CI_M_CLEAR_MOV:
+                    if (device.robotState.movementState.isPaused(data.movementId) !== -1) device.robotState.movementState.resume(data.movementId);
+                    break;
+                case command.CommandIdMovement.CI_M_CLEAR_PAUSED:
+                    device.robotState.movementState.clearPaused();
                     break;
                 default:
                     break;
             }
             message_command.setMovement(data);
+            // this.updateMovementManagerCache(data);
             return true;
+        }
+
+        // only used in pxt
+        private updateMovementManagerCache(data: packet_command.IMovementData) {
+            let i = 0;
+            let ids = device.robotState.movementState.movementManagerMovementIds;
+            let counts = device.robotState.movementState.movementManagerKeyframeCount;
+
+            // get id
+            for (; i < ids.length; i++) {
+                if (ids[i] == data.movementId) break;
+            }
+
+            // modifiy cache
+            if (i == ids.length) {  // add item
+                ids.push(data.movementId);
+                counts.push(1);
+            }
+            else {
+                counts[i] += 1;
+            }
         }
     }
 
@@ -353,7 +333,7 @@ namespace softrobot.movement {
             if (this.nextShortestTime(MovementMerger.SUB_KEYFRAME_DURATION_MIN) > 200) {    // seperate a 100
                 time = MovementMerger.STANDARD_KEYFRAME_DURATION;
             }
-            let currentMotorsPose = softrobot.device.robotState.getPropArray<number>("pose", softrobot.device.robotState.motor);
+            let currentMotorsPose = softrobot.util.getPropArray<number>("pose", softrobot.device.robotState.motor);
             return this.addTime(time, currentMotorsPose);
         }
 
@@ -421,10 +401,10 @@ namespace softrobot.movement {
          * add time to the current movement
          * @param time time to be add to the current time
          * @param currentMotorsPose the current motor pose
-         * @returns 
+         * @returns
                     {
                         period: time diff between this current time and prev neighbor keyframe time
-                        pose: pose at current time 
+                        pose: pose at current time
                     }
                     Note: if time is larger than the last period, return {period: ..., pose: []}
          */

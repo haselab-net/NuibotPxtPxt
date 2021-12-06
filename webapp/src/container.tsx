@@ -7,6 +7,7 @@ import * as tutorial from "./tutorial";
 import * as container from "./container";
 import * as greenscreen from "./greenscreen";
 import * as core from "./core";
+import * as mobx from 'mobx'
 
 type ISettingsProps = pxt.editor.ISettingsProps;
 
@@ -138,8 +139,6 @@ export class SettingsMenu extends data.Component<SettingsMenuProps, SettingsMenu
 
     constructor(props: SettingsMenuProps) {
         super(props);
-        this.state = {
-        }
 
         this.openSettings = this.openSettings.bind(this);
         this.showPackageDialog = this.showPackageDialog.bind(this);
@@ -155,9 +154,7 @@ export class SettingsMenu extends data.Component<SettingsMenuProps, SettingsMenu
         this.showShareDialog = this.showShareDialog.bind(this);
         this.pair = this.pair.bind(this);
         this.pairBluetooth = this.pairBluetooth.bind(this);
-        this.softRobotPair = this.softRobotPair.bind(this);
-        this.softRobotUnpair = this.softRobotUnpair.bind(this);
-        this.softrobotSettings = this.softrobotSettings.bind(this);
+        this.softrobotControlMode = this.softrobotControlMode.bind(this);
         this.showAboutDialog = this.showAboutDialog.bind(this);
         this.print = this.print.bind(this);
     }
@@ -235,22 +232,10 @@ export class SettingsMenu extends data.Component<SettingsMenuProps, SettingsMenu
             .then(() => core.hideLoading("webblepair"));
     }
 
-    // pair soft robot
-    softRobotPair() {
-        pxt.tickEvent("menu.pair.softrobot");
-        this.props.parent.pairSoftRobot();
-    }
-
-    // unpair soft robot
-    softRobotUnpair() {
-        pxt.tickEvent("menu.unpair.softrobot");
-        this.props.parent.unpairSoftRobot();
-    }
-
     // show settings for softrobot
-    softrobotSettings() {
+    softrobotControlMode() {
         pxt.tickEvent("menu.settings.softrobot");
-        this.props.parent.settingsSoftRobot();
+        this.props.parent.controlModeSoftRobot();
     }
 
     showAboutDialog() {
@@ -270,12 +255,12 @@ export class SettingsMenu extends data.Component<SettingsMenuProps, SettingsMenu
         if (nextProps.greenScreen !== undefined) {
             newState.greenScreen = nextProps.greenScreen;
         }
-        if (Object.keys(newState).length > 0) this.setState(newState)
+        if (Object.keys(newState).length > 1) this.setState(newState)
     }
 
     shouldComponentUpdate(nextProps: SettingsMenuProps, nextState: SettingsMenuState, nextContext: any): boolean {
         return this.state.highContrast != nextState.highContrast
-            || this.state.greenScreen != nextState.greenScreen;
+            || this.state.greenScreen != nextState.greenScreen
     }
 
     renderCore() {
@@ -317,11 +302,10 @@ export class SettingsMenu extends data.Component<SettingsMenuProps, SettingsMenu
             {
                 // button for pair soft robot in settings on the main menu
             }
-            <div className="ui divider"></div>
-            {softRobot.compile.isNative && !softRobot.ui.editortoolbar.showPairButton ? <sui.Item role="menuitem" icon='usb' text={lf("Pair device")} onClick={this.softRobotPair} tabIndex={-1} /> : undefined}
-            {softRobot.compile.isNative && !softRobot.ui.editortoolbar.showPairButton ? <sui.Item role="menuitem" icon='usb' text={lf("Unpair device")} onClick={this.softRobotUnpair} tabIndex={-1} /> : undefined}
-            {softRobot.compile.isNative && !softRobot.ui.editortoolbar.showControlMode ? <div className="ui divider"></div> : undefined }
-            {softRobot.compile.isNative && !softRobot.ui.editortoolbar.showControlMode ? <sui.Item role="menuitem" icon='settings large' text={lf("Settings")} onClick={this.softrobotSettings} tabIndex={-1} /> : undefined}
+            <div className="ui divider portrait only"></div>
+            <sui.Item className="portrait only" role="menuitem" icon='compress' text={lf("Calibration")} onClick={this.props.parent.calibrationSoftRobot} tabIndex={-1} />
+            <sui.Item className="portrait only" role="menuitem" icon='list' text={lf("Inspector")} onClick={this.props.parent.inspectorSoftRobot} tabIndex={-1} />
+            <sui.Item className="portrait only" role="menuitem" icon='wrench' text={lf("Settings")} onClick={this.props.parent.hwSettingsSoftRobot} tabIndex={-1} />
             <div className="ui mobile only divider"></div>
             {renderDocItems(this.props.parent, "mobile only")}
             <div className="ui divider"></div>

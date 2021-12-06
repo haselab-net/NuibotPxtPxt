@@ -415,6 +415,7 @@ function cachedBuiltinCategories(): pxt.Map<BuiltinCategoryDefinition> {
                 }
             ],
             attributes: {
+                advanced: true,
                 callingConvention: ts.pxtc.ir.CallingConvention.Plain,
                 weight: 50.06,
                 icon: "math",
@@ -431,7 +432,7 @@ function cachedBuiltinCategories(): pxt.Map<BuiltinCategoryDefinition> {
                 return false;
             },
             attributes: {
-                advanced: true,
+                advanced: false,
                 weight: 50.08,
                 callingConvention: ts.pxtc.ir.CallingConvention.Plain,
                 icon: "functions",

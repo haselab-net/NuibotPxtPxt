@@ -1,7 +1,61 @@
 namespace softrobot.util {
+  export namespace mobx {
+    export type Boxed<T> = {
+      get: () => T,
+      set: (value: T) => void
+    }
+    export function toBoxed<T>(value: T): Boxed<T> {
+      let _val = value;
+      return {
+        get: () => (_val),
+        set: (val: T) => _val = val
+      }
+    }
+  }
+
   // judge wether obj exists (not undefined and not null)
   export function haveProp(obj: any): boolean {
     return !!obj || obj == 0;
+  }
+
+  /**
+    * combine props of an object array to an prop array
+    * @description assume object have property p, this function convert object[] into p[]
+    * @param name one property (type T) name of object
+    * @param array array of object
+    */
+  export function getPropArray<T>(name: string, array: Array<any>): Array<T> {
+    if (!(name in array[0])) {
+        console.error("No property named " + name + "in array");
+        return null;
+    }
+
+    let res: Array<T> = new Array<T>();
+    for (let i: number = 0; i < array.length; i++) {
+        res.push(array[i][name] as T);
+    }
+    return res;
+  }
+  /**
+    * set props of an object array to an prop array
+    * @param name name of the property
+    * @param pArray property value array
+    * @param oArray object array
+    */
+  export function setPropArray<T>(name: string, pArray: Array<T>, oArray: Array<any>) {
+      if (pArray.length != oArray.length) {
+          console.error("Not equivalent length array");
+          return;
+      }
+      if (!(name in oArray[0])) {
+          console.error("No property named " + name + "in array");
+          return;
+      }
+
+      let res = oArray;
+      for (let index = 0; index < res.length; index++) {
+          res[index][name] = pArray[index];
+      }
   }
 
   // limit num between min and max
@@ -80,6 +134,10 @@ namespace softrobot.util {
       res += str;
     }
     return res.toUpperCase();
+  }
+  export function getURLParam(key: string): string {
+    let url: URL = new URL(window.location.href);
+    return url.searchParams.get(key);
   }
 
   // write to ArrayBuffer
@@ -224,5 +282,154 @@ namespace softrobot.util {
     obj[propName] = String.fromCharCode.apply(null, array);
 
     return byteOffset;
+  }
+
+  // storage
+  export interface IMapContents<T> {
+      [key: number]: T
+  }
+  export class MyMap<T> {
+      private MAX_SIZE = 100;
+      public contents: IMapContents<T> = {};
+      private size = 0;
+      private currentKey: number = -1;
+      private keyGenerator(): number {
+      while (!!this.contents[++this.currentKey]) {
+          if (this.currentKey == this.MAX_SIZE - 1) this.currentKey = -1;
+      }
+      return this.currentKey;
+      }
+      /**
+      * add content to the map
+      * @param content the content to be added into the map
+      * @returns the key of the added content, return -1 if its full
+      */
+      push(content: T): number {
+      if (this.size == this.MAX_SIZE) return -1;
+      let key = this.keyGenerator();
+      this.contents[key] = content;
+      return key;
+      }
+      /**
+      * delete one content from the map
+      * @param key the key of the content
+      */
+      remove(key: number) {
+      this.contents[key] = undefined;
+      }
+      /**
+      * clear all contents in the map
+      */
+      clear() {
+      this.contents = {};
+      }
+      /**
+      * get the content in the map with key
+      * @param key the key of the content
+      */
+      find(key: number): T {
+      return this.contents[key];
+      }
+      /**
+      * map
+      * @param callback callback function called for every content
+      */
+      map(callback: (val?: T, key?: number) => void) {
+      for (let key in this.contents) {
+          if (!!this.contents[key]) callback(this.contents[key], parseInt(key));
+      }
+      }
+  }
+
+  export function time2Str(timeMs: number, fix: number = 2): string {
+    let numStr, unitStr;
+    if (timeMs < 60 * 1000) {
+      numStr = (timeMs / 1000).toString()
+      unitStr = "s"
+    } else {
+      numStr = (timeMs / 60 / 1000).toString()
+      unitStr = "min"
+    }
+
+    let pointPos = numStr.search(/\./)
+    if (pointPos >= 0) {
+      numStr = numStr.substring(0, pointPos + fix + 1)
+    }
+
+    return numStr + unitStr
+  }
+
+  export function instance2PlainShallow(instance: any) {
+    let plain: any = {}
+
+    for (const key in instance) {
+        if (instance.hasOwnProperty(key)) {
+          plain[key] = instance[key]
+        }
+    }
+
+    return plain
+  }
+  export function instance2PlainWithoutFuncDeep(instance: any) {
+    let plain: any = {}
+
+    for (const key in instance) {
+        if (instance.hasOwnProperty(key)) {
+          if (typeof instance[key] === "function") {
+            continue
+          } else if (typeof instance[key] === "object") {
+            plain[key] = instance2PlainWithoutFuncDeep(instance[key])
+          } else {
+            plain[key] = instance[key]
+          }
+        }
+    }
+
+    return plain
+  }
+  export function copyProps<T>(target: T, source: Partial<T>) {
+    for (const key in source) {
+      if (source.hasOwnProperty(key)) {
+        target[key] = source[key]
+      }
+    }
+  }
+
+  export function aLessThanB(a_uint: number, b_uint: number, uint_size: number) {
+    console.assert(a_uint >= 0 && b_uint >= 0);
+    a_uint = a_uint % uint_size;
+    b_uint = b_uint % uint_size;
+    if (b_uint == a_uint) {
+      return false;
+    }
+    if (b_uint > a_uint) {
+      return b_uint - a_uint < a_uint + uint_size - b_uint;
+    }
+    return a_uint - b_uint > b_uint + uint_size - a_uint;
+  }
+
+  export function generateHashCode(str: string): number {
+    let hash = 0, i, chr;
+    if (str.length === 0) return hash;
+    for (i = 0; i < str.length; i++) {
+        chr   = str.charCodeAt(i);
+        hash  = ((hash << 5) - hash) + chr;
+        hash |= 0; // Convert to 32bit integer
+    }
+    return hash;
+  }
+
+  export function str2Color(str: string): number[] {
+    // use hex string inside str if possible
+    const retrievedHexes = str.toLowerCase().match(/#([0-9a-f]){6}/)
+    if (retrievedHexes.length != 0) {
+      const hex = retrievedHexes[0]
+      return [[1, 3], [3, 5], [5, 7]].map((val) => parseInt(hex.substring(val[0], val[1]), 16))
+    }
+
+    // use hash
+    const hash = softrobot.util.generateHashCode(str);
+    const color = [(hash & 0x00ff0000) >> 16, (hash & 0x0000ff00) >> 8, (hash & 0x000000ff)]
+    return color
   }
 }

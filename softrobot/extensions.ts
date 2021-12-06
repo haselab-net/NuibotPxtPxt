@@ -1,13 +1,7 @@
 /// <reference path="../built/pxtlib.d.ts"/>
 
 namespace softrobot.ui {
-
-    /**
-     * setting dialog
-     */
-
-    /**
-     * calibration dialog
-     */
+    export let lockControlModeDropdown: () => void;     // overwrite by softrobot.tsx
+    export let unlockControlModeDropdown: () => void;   // overwrite by softrobot.tsx
 }
 

@@ -26,7 +26,7 @@ namespace softrobot.message_command.callbacks {
         // find whether have satisfied threshold
         for (let i = 0; i < touchThresholdArray.length; i++) {
             let threshold = touchThresholdArray[i];
-            if (threshold.sensorId >= oldValue.length) {
+            if (threshold.sensorId >= oldValue.length || threshold.sensorId >= newValue.length) {
                 console.log(`No touch sensor with id ${threshold.sensorId}`);
                 continue;
             }

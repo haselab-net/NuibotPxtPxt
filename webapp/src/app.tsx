@@ -7,6 +7,7 @@
 
 import * as React from "react";
 import * as ReactDOM from "react-dom";
+import * as mobx from "mobx";
 import * as workspace from "./workspace";
 import * as cloudsync from "./cloudsync";
 import * as data from "./data";
@@ -50,6 +51,10 @@ import * as draganddrop from "./draganddrop";
 import * as notification from "./notification";
 import * as electron from "./electron";
 import * as sr from "./softrobot"
+import {convertRobotInfo, convertRobotState, convertSocket} from "./srComponents/StateContainer"
+import * as simMQTT from "./srComponents/SimMQTT"
+import * as ota from "./srComponents/OTA"
+import {RookieMode} from "./srPages/RookieMode"
 
 type IAppProps = pxt.editor.IAppProps;
 type IAppState = pxt.editor.IAppState;
@@ -129,7 +134,8 @@ export class ProjectView
             home: shouldShowHomeScreen,
             active: document.visibilityState == 'visible' || electron.isElectron() || pxt.winrt.isWinRT() || pxt.appTarget.appTheme.dontSuspendOnVisibility,
             collapseEditorTools: pxt.appTarget.simulator.headless || (!isSandbox && pxt.BrowserUtils.isMobile()),
-            highContrast: isHighContrast
+            highContrast: isHighContrast,
+            rookieMode: parseHash().cmd === 'rookie',
         };
         if (!this.settings.editorFontSize) this.settings.editorFontSize = /mobile/i.test(navigator.userAgent) ? 15 : 19;
         if (!this.settings.fileHistory) this.settings.fileHistory = [];
@@ -140,12 +146,14 @@ export class ProjectView
         this.openSimSerial = this.openSimSerial.bind(this);
         this.openDeviceSerial = this.openDeviceSerial.bind(this);
         this.toggleGreenScreen = this.toggleGreenScreen.bind(this);
+        this.showRookieModePage = this.showRookieModePage.bind(this);
 
         // bind callbacks for inform simulator with packet from remote
         this.bindNuibotCallback();
+    }
 
-        // bind callback for pair and unpair
-        softrobot.socket.onNuibotGoOnline.push(() => core.infoNotification(lf("Device paired!")));
+    showRookieModePage() {
+        pxt.BrowserUtils.changeHash("#rookie", true)
     }
 
     shouldShowHomeScreen() {
@@ -167,7 +175,7 @@ export class ProjectView
         let active = document.visibilityState == 'visible';
         pxt.debug(`page visibility: ${active}`)
         this.setState({ active: active })
-        if (!active && (pxt.appTarget.simulator && pxt.appTarget.simulator.autoRun)) {
+        if (!active && (pxt.appTarget.simulator && pxt.appTarget.simulator.autoRun) && simulator.driver) {
             if (simulator.driver.state == pxsim.SimulatorState.Running) {
                 this.suspendSimulator();
                 this.setState({ resumeOnVisibility: true });
@@ -543,6 +551,7 @@ export class ProjectView
         this.initDragAndDrop();
     }
 
+    private autoInfoDisposer: mobx.IReactionDisposer
     public componentDidMount() {
         this.allEditors.forEach(e => e.prepare())
         simulator.init(document.getElementById("boardview"), {
@@ -569,6 +578,25 @@ export class ProjectView
             editor: this.state.header ? this.state.header.editor : ''
         })
         this.forceUpdate(); // we now have editors prepared
+
+        // bind callback for pair and unpair
+        let init: boolean = true
+        this.autoInfoDisposer = mobx.autorun(() => {
+            const paired = softrobot.socket.paired.get()
+            if (init === true) {
+                init = false
+                return
+            }
+
+            if (paired === softrobot.socket.PairStatus.Paired) {
+                core.infoNotification(lf("Device paired!"))
+            } else if (paired === softrobot.socket.PairStatus.Unpaired) {
+                core.warningNotification(lf("Nuibot become offline now"));
+            }
+        })
+    }
+    public componentWillUnmount() {
+        this.autoInfoDisposer()
     }
 
     // Add an error guard for the entire application
@@ -1315,6 +1343,7 @@ export class ProjectView
         if (!hasHome) return;
 
         this.stopSimulator();
+        softrobot.socket.webUnpairAsync()
         if (this.editor) this.editor.unloadFileAsync();
         // clear the hash
         pxt.BrowserUtils.changeHash("", true);
@@ -1518,49 +1547,10 @@ export class ProjectView
     }
 
     /**
-     * Pair soft robot dialog
-     * @description Dialog will show after pair device button is clicked.
-     * @author gzl
-     */
-    pairSoftRobot() {
-        const prePairAsync = sr.dialog.webPairDialogAsync
-            ? sr.dialog.webPairDialogAsync(core.chooseAsync)
-            : Promise.resolve("");
-        return prePairAsync.then((res) => {
-            let reg_ip = /^(\d{1,2}|1\d\d|2[0-4]\d|25[0-5])\.(\d{1,2}|1\d\d|2[0-4]\d|25[0-5])\.(\d{1,2}|1\d\d|2[0-4]\d|25[0-5])\.(\d{1,2}|1\d\d|2[0-4]\d|25[0-5])$/;
-            let reg = RegExp(reg_ip);
-            if (reg.test(res)) {
-                softrobot.socket.ip_address = res;
-                return softrobot.socket.webPairAsync()
-                    .then(() => {
-                        // core.infoNotification(lf("Device paired! Try downloading now."))
-                    }, (err: string) => {
-                        core.errorNotification(lf("Failed to pair the device"))
-                    });
-            }
-            else {
-                core.errorNotification(lf("Not an ip address."));
-            }
-            return Promise.resolve();
-        });
-    }
-    /**
-     * Unpair soft robot dialog
-     * @author gzl
-     */
-    unpairSoftRobot() {
-        return softrobot.socket.webUnpairAsync().then(() => {
-            core.infoNotification(lf("Device unpaired!"));
-        }, () => {
-            core.errorNotification(lf("Device is not paired!"));
-        })
-    }
-
-    /**
      * Settings dialog
      */
-    settingsSoftRobot() {
-        const settingDialog = sr.dialog.settingsDialogAsync ? sr.dialog.settingsDialogAsync(core.confirmAsync) : Promise.resolve(1);
+    controlModeSoftRobot() {
+        const settingDialog = sr.dialog.controlModeDialogAsync ? sr.dialog.controlModeDialogAsync(core.confirmAsync) : Promise.resolve(1);
         return settingDialog;
     }
 
@@ -1570,6 +1560,26 @@ export class ProjectView
     calibrationSoftRobot() {
         const calibrationDialog = sr.dialog.calibrationDialogAsync ? sr.dialog.calibrationDialogAsync(core.confirmAsync) : Promise.resolve(1);
         return calibrationDialog;
+    }
+
+    inspectorSoftRobot() {
+        core.confirmAsync({
+            header: lf("Robot State Inspector"),
+            hasCloseIcon: true,
+            hideCancel: true,
+            hideAgree: true,
+            jsx: React.createElement(sr.dialog.robotStateInspector.RobotStateInspector, {})
+        })
+    }
+
+    hwSettingsSoftRobot() {
+        core.confirmAsync({
+            header: lf("Settings"),
+            hasCloseIcon: true,
+            hideCancel: true,
+            hideAgree: true,
+            jsx: React.createElement(sr.dialog.robotSettings.RobotSettingsDialog, {nvsSettings: softrobot.device.robotInfo.nvsSettings})
+        })
     }
 
     ///////////////////////////////////////////////////////////
@@ -1709,7 +1719,7 @@ export class ProjectView
     }
 
     /**
-     * Compile block to js and send to hardware. 
+     * Compile block to js and send to hardware.
      * @description function is executed after download button clicked.
      * @author gzl
      */
@@ -2029,10 +2039,12 @@ export class ProjectView
     bindNuibotCallback() {
         /**
          * inform simulator for change of robot state
-         * @param msg 
+         * @param msg
          */
         function updateSimRobotData(msg: pxsim.SimulatorMessage) {
-            simulator.driver.postMessage(msg);
+            if (simulator && simulator.driver) {
+                simulator.driver.postMessage(msg);
+            }
         }
 
         softrobot.socket.onRcvCommandPacket.push(function(packet: ArrayBuffer) {
@@ -2049,19 +2061,18 @@ export class ProjectView
             core.infoNotification(lf("Download success"));
         })
 
-        softrobot.socket.onNuibotGoOffline.push(function () {
-            core.warningNotification(lf("Nuibot become offline now"));
-        })
-
         softrobot.message_command.onRcvCIResetSensorMessage.push(function() {
             core.infoNotification(lf("Reset sensor success"));
         })
 
-        softrobot.settings.value.onSyncModeChange = this.changeControlMode.bind(this);
+        softrobot.settings.value.onSyncModeChange.push(this.changeControlMode.bind(this));
 
         softrobot.settings.popInfoOnRcvWriteNvs = (key: string) => {
             core.infoNotification("Set hardware setting: " + key + " success");
         }
+
+        simMQTT.init()
+        ota.init()
     }
 
     changeControlMode(synchronizationMode: boolean) {
@@ -2636,7 +2647,7 @@ export class ProjectView
         const sideDocs = !(sandbox || targetTheme.hideSideDocs);
         const tutorialOptions = this.state.tutorialOptions;
         const inTutorial = !!tutorialOptions && !!tutorialOptions.tutorial;
-        const inHome = this.state.home && !sandbox;
+        const inHome = this.state.home && !sandbox && !this.state.rookieMode;
         const inEditor = !!this.state.header;
         const { lightbox, greenScreen } = this.state;
         const simDebug = !!targetTheme.debugger;
@@ -2688,6 +2699,7 @@ export class ProjectView
                 </div>
             </div>
         }
+
         return (
             <div id='root' className={rootClasses}>
                 {greenScreen ? <greenscreen.WebCam close={this.toggleGreenScreen} /> : undefined}
@@ -2700,27 +2712,29 @@ export class ProjectView
                 {inTutorial ? <div id="maineditor" className={sandbox ? "sandbox" : ""} role="main">
                     <tutorial.TutorialCard ref="tutorialcard" parent={this} />
                 </div> : undefined}
-                <div id="simulator">
-                    {simDebug ? <debug.DebuggerToolbar parent={this} /> : undefined}
-                    <aside id="filelist" className="ui items">
-                        <label htmlFor="boardview" id="boardviewLabel" className="accessible-hidden" aria-hidden="true">{lf("Simulator")}</label>
-                        <div id="boardview" className={`ui vertical editorFloat`} role="region" aria-labelledby="boardviewLabel">
-                        </div>
-                        <simtoolbar.SimulatorToolbar parent={this} />
-                        <div className="ui item portrait hide hidefullscreen">
-                            {pxt.options.debug ? <sui.Button key='hwdebugbtn' className='teal' icon="xicon chip" text={"Dev Debug"} onClick={this.hwDebug} /> : ''}
-                        </div>
-                        {useSerialEditor ?
-                            <div id="serialPreview" className="ui editorFloat portrait hide hidefullscreen">
-                                <serialindicator.SerialIndicator ref="simIndicator" isSim={true} onClick={this.openSimSerial} />
-                                <serialindicator.SerialIndicator ref="devIndicator" isSim={false} onClick={this.openDeviceSerial} />
-                            </div> : undefined}
-                        {sandbox || isBlocks || this.editor == this.serialEditor ? undefined : <filelist.FileList parent={this} />}
-                    </aside>
-                </div>
-                <div id="maineditor" className={sandbox ? "sandbox" : ""} role="main">
-                    {this.allEditors.map(e => e.displayOuter())}
-                </div>
+                {this.state.rookieMode ? <RookieMode parent={this} /> : undefined}
+                {!this.state.rookieMode ?
+                    <div id="simulator">
+                        {simDebug ? <debug.DebuggerToolbar parent={this} /> : undefined}
+                        <aside id="filelist" className="ui items">
+                            <label htmlFor="boardview" id="boardviewLabel" className="accessible-hidden" aria-hidden="true">{lf("Simulator")}</label>
+                            <div id="boardview" className={`ui vertical editorFloat`} role="region" aria-labelledby="boardviewLabel">
+                            </div>
+                            <simtoolbar.SimulatorToolbar parent={this} />
+                            <div className="ui item portrait hide hidefullscreen">
+                                {pxt.options.debug ? <sui.Button key='hwdebugbtn' className='teal' icon="xicon chip" text={"Dev Debug"} onClick={this.hwDebug} /> : ''}
+                            </div>
+                            {useSerialEditor ?
+                                <div id="serialPreview" className="ui editorFloat portrait hide hidefullscreen">
+                                    <serialindicator.SerialIndicator ref="simIndicator" isSim={true} onClick={this.openSimSerial} />
+                                    <serialindicator.SerialIndicator ref="devIndicator" isSim={false} onClick={this.openDeviceSerial} />
+                                </div> : undefined}
+                            {sandbox || isBlocks || this.editor == this.serialEditor ? undefined : <filelist.FileList parent={this} />}
+                        </aside>
+                    </div> : undefined}
+                {!this.state.rookieMode ? <div id="maineditor" className={sandbox ? "sandbox" : ""} role="main">
+                        {this.allEditors.map(e => e.displayOuter())}
+                    </div> : undefined}
                 {inHome ? <div id="homescreen" className="full-abs" role="main">
                     <div className="ui home projectsdialog">
                         <div className="menubar" role="banner">
@@ -2835,6 +2849,12 @@ function initSerial() {
     }
 }
 
+function initSoftrobot() {
+    convertRobotInfo()
+    convertRobotState()
+    convertSocket()
+}
+
 function getsrc() {
     pxt.log(theEditor.editor.getCurrentSource())
 }
@@ -2936,7 +2956,24 @@ function handleHash(hash: { cmd: string; arg: string }, loading: boolean): boole
     let editor = theEditor;
     if (!editor) return false;
 
-    if (isProjectRelatedHash(hash)) editor.setState({ home: false });
+    if (isProjectRelatedHash(hash)) {
+        editor.setState({
+            home: false,
+            rookieMode: false
+        });
+    }
+    else if (hash.cmd === "rookie") {
+        editor.setState({
+            home: true,
+            rookieMode: true
+        })
+    }
+    else if (hash.cmd === "") {
+        editor.setState({
+            home: true,
+            rookieMode: false
+        })
+    }
 
     switch (hash.cmd) {
         case "doc":
@@ -2992,6 +3029,9 @@ function handleHash(hash: { cmd: string; arg: string }, loading: boolean): boole
             core.showLoading("loadingproject", lf("loading project..."));
             editor.importProjectFromFileAsync(fileContents)
                 .finally(() => core.hideLoading("loadingproject"));
+            return true;
+        case "rookie":
+            pxt.tickEvent("hash." + hash.cmd);
             return true;
         case "reload": // need to reload last project - handled later in the load process
             if (loading) pxt.BrowserUtils.changeHash("");
@@ -3264,6 +3304,10 @@ document.addEventListener("DOMContentLoaded", () => {
         .then(() => pxt.BrowserUtils.initTheme())
         .then(() => pxt.editor.experiments.syncTheme())
         .then(() => cmds.initCommandsAsync())
+        .then(() => {
+            initSoftrobot();
+            return Promise.resolve();
+        })
         .then(() => {
             // editor messages need to be enabled early, in case workspace provider is IFrame
             if (pxt.appTarget.appTheme.allowParentController

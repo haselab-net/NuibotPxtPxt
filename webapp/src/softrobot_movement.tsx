@@ -1,16 +1,34 @@
 /// <reference path="../../built/softrobot.d.ts" />
 
 import * as React from "react"
-import * as ReactDOM from "react-dom"
-import * as sui from "./sui"
-import Slider, { Range, Handle, createSliderWithTooltip, Marks } from 'rc-slider';
-import {RCTooltip} from 'rc-tooltip';
-import { FAST_TRACE_INTERVAL } from "./simulator";
+import {Range, RangeProps} from "./srComponents/Range"
+import {DragBar} from './srComponents/DragBar'
+import {DividerDropdown} from './srComponents/DividerDropdown'
+import {TimePointer, TimePointerProps} from './srComponents/TimePointer'
+import {Track, Tag} from './srComponents/Track'
+import InputSubmitter from './srComponents/InputSubmitter'
+import {Slider as MySlider, SliderProps} from './srComponents/Slider'
+import {autorun, IReactionDisposer} from 'mobx'
 
 export let CODE_STRING: string = "";
 
-let SliderWithTooltip = createSliderWithTooltip(Slider);
-let RangeWithTooltip = createSliderWithTooltip(Range);
+function roundTime(time: number) {
+  let displayTime = time + 1
+  let mod = displayTime % softrobot.device.robotInfo.MS_PER_MOVEMENT_TICK
+  if (mod < (softrobot.device.robotInfo.MS_PER_MOVEMENT_TICK / 2)) {
+    displayTime -= mod
+  } else {
+    displayTime += softrobot.device.robotInfo.MS_PER_MOVEMENT_TICK - mod
+  }
+
+  return displayTime - 1
+}
+function limitTime(roundedTime: number, duration: number) {
+  return softrobot.util.limitNum(roundedTime, softrobot.device.robotInfo.MS_PER_MOVEMENT_TICK - 1, duration - duration % softrobot.device.robotInfo.MS_PER_MOVEMENT_TICK - 1)
+}
+
+// parameters
+let MAX_KEYFRAME_COUNT = 16 - 1;  // the maximum number of keyframes in movement (there might be one auto interpolated keyframe at last)
 
 interface PartialKeyframe {
   pose: number[]; // pose of motors in motorIdList
@@ -23,6 +41,11 @@ interface MovementData {
   keyframes: PartialKeyframe[];
   duration: number;
   motorNum: number;
+}
+
+interface Config {
+  showColorBlock?: boolean;
+  showDeveloperTools?: boolean;
 }
 
 /**
@@ -162,7 +185,7 @@ interface MovementDialogContext {
   // websocket communication
   sendWSDirect1: (motorId: number, pose: number) => void;
   sendWSDirect: (motorIds: number[], poses: number[]) => void;
-  sendWSInterpolate: (motorIds: number[], poses: number[], time: number) => number;
+  sendWSInterpolate: (motorIds: number[], poses: number[], time: number) => void;
 
   // id
   name: string;     // unique id assign to this movement
@@ -172,10 +195,11 @@ interface MovementDialogContext {
   keyframes: PartialKeyframe[]; // keyframes
   duration: number; // duration of this movement
   motorNum: number; // count of motors
+  motorLengthLimits: number[][];  // [[min, max], ...]
   addKeyframe: (keyframe?: PartialKeyframe) => void;
-  deleteKeyframe: () => void;
+  deleteKeyframe: (index?: number) => void;
   setKeyframe: (poseId: number, value: number) => void;
-  moveKeyframe: (oldTIme: number, newTime: number) => void;
+  moveKeyframe: (index: number, newTime: number) => void;
   changeMotorIdList: (newList: number[]) => void;
 
   // editor state
@@ -184,17 +208,18 @@ interface MovementDialogContext {
   updateCurrentTime: (newTime: number, isKeyframe?: boolean) => void;
   isPlaying: boolean;
   toggleIsPlaying: () => void;
-  jumpToNeighborKeyframe: (next: boolean) => void;
   setDuration: (duration: number) => void;
   setSyncPose: () => void;
+
+  config: Config;
 }
-const defaultMovementDialogContext = {
+const defaultMovementDialogContext: MovementDialogContext = {
   codeStr: "",
   updateCode: (codeStr: string) => {},
 
   sendWSDirect1: (motorId: number, pose: number) => {},
   sendWSDirect: (motorIds: number[], poses: number[]) => {},
-  sendWSInterpolate: (motorIds: number[], poses: number[], time: number) => -1,
+  sendWSInterpolate: (motorIds: number[], poses: number[], time: number) => {},
 
   name: "default",
 
@@ -202,9 +227,10 @@ const defaultMovementDialogContext = {
   keyframes: [{ pose: [1000, 2000], time: 10 }, { pose: [-1000, -2000], time: 500 }, { pose: [1000, 2000], time: 700 }],
   duration: 3000,
   motorNum: 3,
+  motorLengthLimits: [[-5000, 5000], [-5000, 5000], [-5000, 5000]],
   addKeyframe: (keyframe?: PartialKeyframe) => {},
-  moveKeyframe: (oldTime: number, newTime: number) => {},
-  deleteKeyframe: () => {},
+  moveKeyframe: (index: number, newTime: number) => {},
+  deleteKeyframe: (index?: number) => {},
   changeMotorIdList: (newList: number[]) => {},
   setKeyframe: (poseId: number, value: number) => {},
 
@@ -213,9 +239,13 @@ const defaultMovementDialogContext = {
   updateCurrentTime: (newTime: number, isKeyframe?: boolean) => {},
   isPlaying: false,
   toggleIsPlaying: () => {},
-  jumpToNeighborKeyframe: (next: boolean) => {},
   setDuration: (duration: number) => {},
-  setSyncPose: () => {}
+  setSyncPose: () => {},
+
+  config: {
+    showColorBlock: true,
+    showDeveloperTools: true
+  }
 };
 export const MovementDialogContext = React.createContext(defaultMovementDialogContext);
 
@@ -230,29 +260,36 @@ interface MovementDialogProps {
   codeStr: string;
   encoder: (data: MovementData) => string;
   decoder: (str: string) => MovementData | undefined;
+  invalidNames: string[];
   // communication
   sendWSDirect1: (motorId: number, pose: number) => void;
   sendWSDirect: (motorIds: number[], poses: number[]) => void,
-  sendWSInterpolate: (motorIds: number[], poses: number[], time: number) => number;
+  sendWSInterpolate: (motorIds: number[], poses: number[], time: number) => void;
   queryWSInterpolate: () => void;
+  clearWSInterpolate: () => void;
   // sync movement player
   addSyncCallback: (func: (id: number) => void) => number;
   deleteSyncCallback: (funcId: number) => void;
   // robot info
   motorNum: number;
+  motorLengthLimits: number[][];  // [[min, max], ...]
+
+  config: Config;
+  onUpdateCode?: (newCode: string) => void;
 }
 interface MovementDialogState extends MovementDialogContext {}
 export class MovementDialog extends React.Component<MovementDialogProps, MovementDialogState> {
   movementPlayer: any = undefined;        // update current time in fixed time
-  private movementPlayerNextKeyframeId: number = 0;   // rewrite whenever start playing and is used only during playing
   private movementPlayerInterval: number = 20;
-  private keyframePairs: {id: number, time: number}[] = [];   // used to sync time with hardware
   private interpolateQueryer: any = undefined;
   private queryInterpolateInterval: number = 100;
 
   codeStrShouldUpdate: boolean = false;   // update codeStr after state updated if true
 
   syncPose: boolean = false;              // send pose to hardware in getPropMotorPoses if true
+
+  private autoUpdateDisposer: IReactionDisposer
+  private onUpdateCode: (newCode: string) => void
 
   constructor(props: MovementDialogProps) {
     super(props);
@@ -267,11 +304,13 @@ export class MovementDialog extends React.Component<MovementDialogProps, Movemen
     this.moveKeyframe = this.moveKeyframe.bind(this);
     this.changeMotorIdList = this.changeMotorIdList.bind(this);
     this.toggleIsPlaying = this.toggleIsPlaying.bind(this);
-    this.jumpToNeighborKeyframe = this.jumpToNeighborKeyframe.bind(this);
     this.setDuration = this.setDuration.bind(this);
     this.setSyncPose = this.setSyncPose.bind(this);
     this.syncTime = this.syncTime.bind(this);
     this.updateMovementName = this.updateMovementName.bind(this);
+    this.updateDuration = this.updateDuration.bind(this);
+
+    this.onUpdateCode = this.props.onUpdateCode ? this.props.onUpdateCode : () => {}
 
     let tmp = this.props.decoder(this.props.codeStr);
     let movementData: MovementData = tmp
@@ -295,6 +334,7 @@ export class MovementDialog extends React.Component<MovementDialogProps, Movemen
       sendWSInterpolate: this.props.sendWSInterpolate,
 
       ...movementData,
+      motorLengthLimits: this.props.motorLengthLimits,
 
       addKeyframe: this.addKeyframe,
       moveKeyframe: this.moveKeyframe,
@@ -307,9 +347,10 @@ export class MovementDialog extends React.Component<MovementDialogProps, Movemen
       updateCurrentTime: this.updateCurrentTime,
       isPlaying: false,
       toggleIsPlaying: this.toggleIsPlaying,
-      jumpToNeighborKeyframe: this.jumpToNeighborKeyframe,
       setDuration: this.setDuration,
-      setSyncPose: this.setSyncPose
+      setSyncPose: this.setSyncPose,
+
+      config: this.props.config
     };
 
     CODE_STRING = this.state.codeStr;
@@ -324,15 +365,41 @@ export class MovementDialog extends React.Component<MovementDialogProps, Movemen
       this.codeStrShouldUpdate = false;
 
       CODE_STRING = newCode;
+      this.onUpdateCode(CODE_STRING)
     }
   }
   componentDidMount() {
     this.syncCallbackId = this.props.addSyncCallback(this.syncTime);
+
+    this.autoUpdateDisposer = autorun(() => {
+      const motorLengthLimits = softrobot.device.robotState.motor.map(motorState => {
+        return [motorState.lengthMin, motorState.lengthMax]
+      })
+      this.setState({motorLengthLimits: motorLengthLimits})
+    })
+    // check pose belongs to [lengthMin, lengthMax]
+    this.state.keyframes.map((keyframe) => keyframe.pose.map((pose, motorIdx) => {
+      const idx = this.state.motorIdList[motorIdx];
+      let motor = softrobot.device.robotState.motor[idx];
+      if (pose < motor.lengthMin) {
+        motor.lengthMin = pose;
+      } else if (pose > motor.lengthMax) {
+        motor.lengthMax = pose;
+      }
+    }))
   }
   componentWillUnmount() {
     if (this.state.isPlaying) this.toggleIsPlaying();
 
     this.props.deleteSyncCallback(this.syncCallbackId);
+
+    this.autoUpdateDisposer()
+  }
+  componentWillReceiveProps(newProps: MovementDialogProps) {
+    console.log("new props", newProps.motorLengthLimits)
+    this.setState({
+      motorLengthLimits: newProps.motorLengthLimits
+    });
   }
 
   /**
@@ -342,17 +409,14 @@ export class MovementDialog extends React.Component<MovementDialogProps, Movemen
    * Receive Algorithm: Bind callback with send queue (called when the minimum count of read is changed), compare it with that of time pointer.
    *                    If different, sync to the min count read of hardware.
    */
+  private movementPlayerNextKeyframeId: number = 0;   // rewrite whenever start playing and is used only during playing
   private syncCallbackId: number = undefined;
+  private startPointerTime: number = -1;
+  private startMovementTime: number = -1;
+  private lastMovementTime: number = -1;
   private updateTime() {
     let time = this.state.currentTime;
     time += this.movementPlayerInterval;
-
-    let nextTime = this.state.keyframes[this.movementPlayerNextKeyframeId].time;
-    if ((time > nextTime)  && (time - this.movementPlayerInterval <= nextTime)) {
-      this.movementPlayerNextKeyframeId = (this.movementPlayerNextKeyframeId + 1) % this.state.keyframes.length;
-      this.onGotoNextKeyframe(this.movementPlayerNextKeyframeId);
-    }
-
     if (time > this.state.duration) time -= this.state.duration;
 
     this.updateCurrentTime(time);
@@ -362,36 +426,52 @@ export class MovementDialog extends React.Component<MovementDialogProps, Movemen
     this.sendKeyframeInterpolate((nextKeyframeId + 1) % this.state.keyframes.length);
   }
   private sendKeyframeInterpolate(keyframeId: number) {
-    let interval = this.state.keyframes[keyframeId].time - this.state.keyframes[(keyframeId - 1 + this.state.keyframes.length) % this.state.keyframes.length].time
+    const keyframeTime = this.state.keyframes[keyframeId].time;
+    const lastKeyframeTime = this.state.keyframes[(keyframeId - 1 + this.state.keyframes.length) % this.state.keyframes.length].time
+    let interval = keyframeTime - lastKeyframeTime;
     if (interval <= 0) interval += this.state.duration;
-    let id = this.props.sendWSInterpolate(
+    this.props.sendWSInterpolate(
       this.state.motorIdList,
       this.state.keyframes[keyframeId].pose,
       interval
     );
-    if (id != -1) this.keyframePairs.push({id: id, time: this.state.keyframes[keyframeId].time});
   }
-  private syncTime(id: number) {    // sync time of movement player with hardware
+  private syncTime(newTime: number) {    // sync time of movement player with hardware
+    function mod(val1: number, val2: number) {
+      return ((val1 % val2) + val2) % val2;
+    }
+    function inBetween(val: number, low: number, high: number): boolean {
+      if (Number(low <= high) ^ Number(val < high) ^ Number(low <= val)) return true;
+      else return false;
+    }
+
+    newTime = newTime * 50;
+
     if (!this.state.isPlaying) return;
 
-    let index = this.keyframePairs.findIndex((val: {id: number, time: number}) => {
-      return val.id == id;
-    });
-    if (index == -1) return;    // keyframe id (in send queue) not found
-    else {
-      for (let i = 0; i < index; i++) {
-        if (this.state.currentTime < this.keyframePairs[index].time) {
-          this.movementPlayerNextKeyframeId = (this.movementPlayerNextKeyframeId + 1) % this.state.keyframes.length;
-          this.onGotoNextKeyframe(this.movementPlayerNextKeyframeId);
-        }
-      }
-
-      let currentKeyframeIdx = (this.firstLargerTimeKeyframeIdx(this.state.keyframes, this.state.currentTime) - 1 + this.state.keyframes.length) % this.state.keyframes.length;
-      if (this.state.keyframes[currentKeyframeIdx].time == this.keyframePairs[index].time) console.log("same keyframe"); // the keyframe is current playing, no need to sync
-      else this.setState({currentTime: (this.keyframePairs[index].time + 1) % this.state.duration});
-
-      this.keyframePairs.splice(0, index);
+    if (this.startMovementTime == -1) {     // start move pointer when hardware replies
+      this.startMovementTime = newTime;
+      this.lastMovementTime = newTime;
+      this.movementPlayer = setInterval(this.updateTime, this.movementPlayerInterval);
+      this.interpolateQueryer = setInterval(this.props.queryWSInterpolate, this.queryInterpolateInterval);
+      return;
     }
+
+    const lastTimeModed = mod(this.lastMovementTime - this.startMovementTime + this.startPointerTime, this.state.duration)
+    if (newTime < this.startMovementTime) {
+      this.startMovementTime -= (1 << 16) * 50;
+    }
+    const newTimeModed = mod(newTime - this.startMovementTime + this.startPointerTime, this.state.duration);
+    const nextKeyframeTime = this.state.keyframes[this.movementPlayerNextKeyframeId].time;
+
+    if (inBetween(nextKeyframeTime, lastTimeModed, newTimeModed)) {
+      this.movementPlayerNextKeyframeId = (this.movementPlayerNextKeyframeId + 1) % this.state.keyframes.length;
+      this.onGotoNextKeyframe(this.movementPlayerNextKeyframeId);
+    }
+
+    this.updateCurrentTime(newTimeModed);
+
+    this.lastMovementTime = newTime;
   }
 
   // code editor
@@ -405,6 +485,7 @@ export class MovementDialog extends React.Component<MovementDialogProps, Movemen
       });
 
       CODE_STRING = codeStr;
+      this.onUpdateCode(CODE_STRING)
     } else {
         this.setState({
             codeStr: this.state.codeStr
@@ -435,34 +516,51 @@ export class MovementDialog extends React.Component<MovementDialogProps, Movemen
     });
   }
   addKeyframe(keyframe?: PartialKeyframe) {
-    if (this.state.isKeyframe) return;
+    let time = keyframe ? keyframe.time : this.state.currentTime
+    time = limitTime(roundTime(time), this.state.duration)
+    if (this.state.keyframes.some(val => val.time === time)) return
 
-    if (!keyframe)
+    if (!keyframe) {
       keyframe = {
-        time: this.state.currentTime,
-        pose: this.getPropMotorPoses(this.state.keyframes, this.state.currentTime, this.state.duration)
+        time: time,
+        pose: this.getPropMotorPoses(this.state.keyframes, time, this.state.duration).map(val => Math.round(val))
       };
+    }
+
     let idx = this.firstLargerTimeKeyframeIdx(this.state.keyframes, keyframe.time);
     this.state.keyframes.splice(idx >= 0 ? idx : this.state.keyframes.length, 0, keyframe);
     this.setState({
       keyframes: this.state.keyframes,
+      currentTime: time,
       isKeyframe: true
     });
 
     this.codeStrShouldUpdate = true;
   }
-  deleteKeyframe() {
-    if (!this.state.isKeyframe) return;
+  deleteKeyframe(index?: number) {
+    let idx: number;
     if (this.state.keyframes.length == 1) return;
 
-    let idx = this.firstLargerTimeKeyframeIdx(this.state.keyframes, this.state.currentTime);
+    if (index !== undefined) {  // index specified
+      if (index < 0 || index >= this.state.keyframes.length) return;
+      idx = index;
+    } else {                    // delete keyframe of current time
+      if (!this.state.isKeyframe) return;
+
+      idx = this.firstLargerTimeKeyframeIdx(this.state.keyframes, this.state.currentTime);
+    }
+
+    if (this.state.currentTime === this.state.keyframes[idx].time) {
+      this.setState({
+        isKeyframe: false
+      });
+    }
 
     let nextKeyframes = Object.assign([], this.state.keyframes);
     nextKeyframes.splice(idx, 1);
     this.setState({
-      keyframes: nextKeyframes,
-      isKeyframe: false
-    });
+      keyframes: nextKeyframes
+    })
 
     this.codeStrShouldUpdate = true;
   }
@@ -478,7 +576,7 @@ export class MovementDialog extends React.Component<MovementDialogProps, Movemen
       });
     }
 
-    let keyframes = this.state.keyframes;
+    let keyframes = [...this.state.keyframes];
     keyframes[idx < 0 ? keyframes.length - 1 : idx].pose[poseId] = value;
     this.setState({
       keyframes: keyframes
@@ -486,20 +584,18 @@ export class MovementDialog extends React.Component<MovementDialogProps, Movemen
 
     this.codeStrShouldUpdate = true;
   }
-  moveKeyframe(oldTime: number, newTime: number) {
-    let idx = this.firstLargerTimeKeyframeIdx(this.state.keyframes, oldTime);
-    if (!(oldTime == this.state.keyframes[idx].time)) return;
+  moveKeyframe(index: number, newTime: number) {
+    newTime = limitTime(roundTime(newTime), this.state.duration)
 
     let keyframes: PartialKeyframe[] = Object.assign([], this.state.keyframes);
-    keyframes[idx].time = newTime;
+    keyframes[index].time = newTime;
     this.setState({
       keyframes: keyframes,
-      isKeyframe: newTime == this.state.currentTime ? true : this.state.isKeyframe
+      isKeyframe: true,
+      currentTime: newTime
     });
 
     this.codeStrShouldUpdate = true;
-
-    console.log("move time", oldTime, newTime);
   }
   changeMotorIdList(newList: number[]) {
     // change order || delete one motor id || add one motor id
@@ -549,44 +645,23 @@ export class MovementDialog extends React.Component<MovementDialogProps, Movemen
     if (!prevState) {   // start playing
       this.movementPlayerNextKeyframeId = this.firstLargerTimeKeyframeIdx(this.state.keyframes, this.state.currentTime);
       if (this.movementPlayerNextKeyframeId < 0) this.movementPlayerNextKeyframeId = 0;
+
+      this.startPointerTime = this.state.currentTime;
+
       // send two keyframes
-      let id = this.props.sendWSInterpolate(
+      this.props.sendWSInterpolate(
         this.state.motorIdList,
         this.state.keyframes[this.movementPlayerNextKeyframeId].pose,
         this.state.keyframes[this.movementPlayerNextKeyframeId].time - this.state.currentTime
       );
-      if (id != -1) this.keyframePairs.push({id: id, time: this.state.currentTime});
       this.sendKeyframeInterpolate((this.movementPlayerNextKeyframeId + 1) % this.state.keyframes.length);
-
-      this.movementPlayer = setInterval(this.updateTime, this.movementPlayerInterval);
-      this.interpolateQueryer = setInterval(this.props.queryWSInterpolate, this.queryInterpolateInterval);
     } else {            // stop playing
       if (!!this.movementPlayer) clearInterval(this.movementPlayer);
       if (!!this.interpolateQueryer) clearInterval(this.interpolateQueryer);
-    }
-  }
-  jumpToNeighborKeyframe(next: boolean) {
-    // next: true(next) || false(prev)
-    if (this.state.isPlaying) this.toggleIsPlaying();
-    if (this.state.keyframes.length == 0) return;
 
-    let idx = this.firstLargerTimeKeyframeIdx(this.state.keyframes, this.state.currentTime);
-    if (idx < 0) idx = 0;
-    let resIdx = 0;
-    if (!next) {
-      // prev keyframe
-      resIdx = idx - 1 >= 0 ? idx - 1 : idx - 1 + this.state.keyframes.length;
-    } else {
-      // next keyframe
-      if (this.state.isKeyframe) idx++;
-      resIdx = idx % this.state.keyframes.length;
+      this.props.clearWSInterpolate();
+      this.startMovementTime = -1;
     }
-
-    this.setSyncPose();   // send pose to hardware
-    this.setState({
-      currentTime: this.state.keyframes[resIdx].time,
-      isKeyframe: true
-    });
   }
   setDuration(duration: number) {
     if (duration < 1000) return;
@@ -608,6 +683,14 @@ export class MovementDialog extends React.Component<MovementDialogProps, Movemen
       name: name
     });
     this.codeStrShouldUpdate = true;
+  }
+  updateDuration(duration: number) {
+    const minDuration: number = this.state.keyframes[this.state.keyframes.length - 1].time + 1;
+    duration = minDuration > duration ? minDuration : duration;
+    this.setState({duration: duration});
+    this.codeStrShouldUpdate = true;
+
+    if (this.state.currentTime > duration) this.setState({currentTime: duration - 1});
   }
 
   private getPropMotorPoses(keyframes: PartialKeyframe[], time: number, duration: number): number[] {
@@ -669,21 +752,28 @@ export class MovementDialog extends React.Component<MovementDialogProps, Movemen
   }
 
   render() {
+    const motorLengthLimitsBound = this.state.keyframes.reduce(
+      (prev, cur) => (cur.time === this.state.currentTime ? prev : prev.map(
+        (item, motorId) => [Math.min(item[0], cur.pose[motorId]), Math.max(item[1], cur.pose[motorId])]
+        )), this.state.motorIdList.map(() => [0, 0]))
+
     return (
       <MovementDialogContext.Provider value={this.state}>
         <div className="ui segment">
-          <NameInput name={this.state.name} updateMovementName={this.updateMovementName} />
+          <NameInputs name={this.state.name} invalidNames={this.props.invalidNames} updateMovementName={this.updateMovementName} duration={this.state.duration} updateDuration={this.updateDuration} />
           <div className="ui divider" />
-          <KeyframeSlider duration={this.state.duration} times={this.getTimeList(this.state.keyframes)} />
+          <KeyframeSlider duration={this.state.duration} times={this.getTimeList(this.state.keyframes)} updateCurrentTime={this.updateCurrentTime} setSyncPose={this.setSyncPose} />
           <div className="ui divider" />
           <MotorInputs
             motorIdList={this.state.motorIdList}
             motorPoses={this.getPropMotorPoses(this.state.keyframes, this.state.currentTime, this.state.duration)}
             changeMotorIdList={this.state.changeMotorIdList}
             checkedMotorIds={this.getPropCheckedMotorIds(this.state.motorIdList, this.state.motorNum)}
+            motorLengthLimitsBound={motorLengthLimitsBound}
           />
-          <div className="ui divider" />
-          <RealtimeEncoder codeStr={this.state.codeStr} onChangeCodeStr={this.updateCode} />
+          {this.props.config.showDeveloperTools === false ? undefined : <DividerDropdown title={lf("Developer Tools")}>
+            <RealtimeEncoder codeStr={this.state.codeStr} onChangeCodeStr={this.updateCode} />
+          </DividerDropdown>}
         </div>
       </MovementDialogContext.Provider>
     );
@@ -691,34 +781,143 @@ export class MovementDialog extends React.Component<MovementDialogProps, Movemen
 }
 
 // SECTION name input
-interface NameInputProps {
+interface NameInputsProps {
   name: string;
+  invalidNames: string[];
+  duration: number;
   updateMovementName: (name: string) => void;
+  updateDuration: (duration: number) => void;
 }
-interface NameInputState {
+interface NameInputsState {
   tmpName: string;
+  validName: NameValidateState;
 }
-export class NameInput extends React.Component<NameInputProps, NameInputState>{
-  constructor(props: NameInputProps) {
+enum NameValidateState {
+  Valid,
+  OccupiedName,
+  EmptyName
+}
+export class NameInputs extends React.Component<NameInputsProps, NameInputsState> {
+  private readonly containerStyle: React.CSSProperties = {
+    display: 'flex',
+    justifyContent: 'space-between'
+  }
+  constructor(props: NameInputsProps) {
     super(props);
 
     this.state = {
-      tmpName: props.name
+      tmpName: props.name,
+      validName: this.nameValidator(props.name)
     }
+
+    this.submitName = this.submitName.bind(this)
+    this.submitDuration = this.submitDuration.bind(this)
+  }
+
+  // remove invalid characters
+  nameFilter(name: string): string {
+    return name.replace(/[\r\n\`\'\"]+/g, '').replace(/[^\x20-\x7F]/g, '');
+  }
+  nameValidator(name: string): NameValidateState {
+    if (!name) return NameValidateState.EmptyName;
+    else if (this.props.invalidNames.find(inv => inv === name)) return NameValidateState.OccupiedName;
+    else return NameValidateState.Valid;
+  }
+
+  componentWillReceiveProps(newProps: NameInputsProps) {
+    this.setState({
+      tmpName: newProps.name,
+    })
+  }
+  submitName() {
+    let val = this.state.tmpName.trim();
+    this.setState({tmpName: val});
+    this.props.updateMovementName(val);
+  }
+  submitDuration(value: string) {
+    let userInput = parseInt(value);
+    if (isNaN(userInput)) {
+      userInput = 0;
+    }
+    this.props.updateDuration(roundTime(userInput - 1) + 1)
   }
 
   render() {
-    return <div className="ui labeled input">
-    <div className="ui label">
-      {lf("Name") + ": "}
+    const nameInput = (
+      <div className={this.state.validName === NameValidateState.Valid ? "ui labeled small input" : "ui labeled small input error"}>
+        <div className="ui label">
+          {lf("Name") + ": "}
+        </div>
+        <input
+          type="text"
+          value={this.state.tmpName}
+          onChange={(event: React.ChangeEvent<HTMLInputElement>) => {
+            this.setState({
+              tmpName: this.nameFilter(event.target.value),
+              validName: this.nameValidator(event.target.value)
+            })
+          }}
+          onBlur={this.submitName}
+          />
+        { (() => {
+          switch (this.state.validName) {
+            case NameValidateState.Valid: return undefined;
+            case NameValidateState.EmptyName: return <div className="ui left pointing red basic label"> {lf("Name is empty!")} </div>;
+            case NameValidateState.OccupiedName: return <div className="ui left pointing red basic label"> {lf("That name is taken!")} </div>;
+          }
+        })()}
+      </div>
+    )
+    const color = softrobot.util.str2Color(this.props.name)
+    const nameColor = (
+      <div className="ui" style={{
+        width: 40,
+        background: `rgb(${color[0]},${color[1]},${color[2]})`,
+        border: "solid 3px #e0e1e2"
+      }}></div>
+    )
+    const periodInput = (
+      <div className="ui right labeled left icon small input right floated">
+        {true ? <div className="ui label">{lf("Duration") + ":"}</div> : <i className="clock icon" />}
+        <InputSubmitter
+          type="number"
+          placeholder="Duration"
+          submitChange={this.submitDuration}
+          value={this.props.duration}
+          onKeyDown={(event: React.KeyboardEvent<HTMLInputElement>) => {
+            switch (event.key) {
+              case "Up":
+              case "ArrowUp":
+                this.submitDuration((this.props.duration + 1000).toString());
+                event.preventDefault();
+                break;
+              case "Down":
+              case "ArrowDown":
+                this.submitDuration((this.props.duration - 1000).toString());
+                event.preventDefault();
+                break;
+              case "Left":
+              case "ArrowLeft":
+                  this.submitDuration((this.props.duration - 100).toString());
+                event.preventDefault();
+                break;
+              case "Right":
+              case "ArrowRight":
+                  this.submitDuration((this.props.duration + 100).toString());
+                  event.preventDefault();
+                break;
+              default:
+                break;
+            }
+          }}
+        />
+        <div className="ui basic label">ms</div>
+      </div>
+    )
+    return <div id="movement-editor-name-inputs" style={this.containerStyle}>
+      <MovementDialogContext.Consumer>{({config}) => (config.showColorBlock === false ? undefined : nameColor)}</MovementDialogContext.Consumer>
+      {periodInput}
     </div>
-    <input
-      type="text"
-      value={this.state.tmpName}
-      onChange={(event: React.ChangeEvent<HTMLInputElement>) => {this.setState({ tmpName: event.target.value})}}
-      onBlur={() => {let val = this.state.tmpName.trim(); this.setState({tmpName: val}); this.props.updateMovementName(val)}}
-       />
-  </div>
   }
 }
 
@@ -727,20 +926,19 @@ export class NameInput extends React.Component<NameInputProps, NameInputState>{
 interface KeyframeSliderProps {
   duration: number;
   times: number[];
+  updateCurrentTime: (newTime: number, isKeyframe?: boolean) => void;
+  setSyncPose: () => void;
 }
-interface KeyframeSliderState {
-  duration: number;
-  times: number[];
-}
-export class KeyframeSlider extends React.Component<KeyframeSliderProps, KeyframeSliderState> {
-  // for move keyframe
-  keyframeOldTimes: number[] = [];
-  keyframeOldTimesRewriteable: boolean = true;
-
+export class KeyframeSlider extends React.Component<KeyframeSliderProps> {
   // range style
   trackStyle: React.CSSProperties = {
     opacity: 0
   };
+
+  private readonly WrappedRange = DragBar<RangeProps & {disabled?: boolean}>(Range, 40)
+  private readonly WrappedTimePointer = DragBar<TimePointerProps & {disabled?: boolean}>(TimePointer, 60)
+
+  private prevKeyframeTimes: number[] = [];
 
   constructor(props: KeyframeSliderProps) {
     super(props);
@@ -750,52 +948,16 @@ export class KeyframeSlider extends React.Component<KeyframeSliderProps, Keyfram
       times: this.props.times
     };
 
-    this.beforeMoveOneKeyframe = this.beforeMoveOneKeyframe.bind(this);
-    this.afterMoveOneKeyframe = this.afterMoveOneKeyframe.bind(this);
     this.handleDurationInputChange = this.handleDurationInputChange.bind(this);
-    this.getPropsMarks = this.getPropsMarks.bind(this);
-    this.handleGenerator = this.handleGenerator.bind(this);
-    this.RangeTipFormatter = this.RangeTipFormatter.bind(this);
-  }
-  handleGenerator(handleProps: any): React.ReactNode {
-    const { value, index, dragging, ...restProps } = handleProps;
-
-    const style: React.CSSProperties = {
-      background: "red"
-    };
-    return (
-      <div key={value} style={style}>
-        <Handle key={index} index={index} value={value} {...restProps} />
-      </div>
-    );
-  }
-  beforeMoveOneKeyframe(value: number[]) {
-    if (this.keyframeOldTimesRewriteable) {
-      this.keyframeOldTimes = value;
-      this.keyframeOldTimesRewriteable = false;
-    }
-  }
-  afterMoveOneKeyframe(oldTimes: number[], newTimes: number[], moveFunc: (oldTime: number, newTime: number) => void) {
-    for (let i = 0; i < oldTimes.length; i++) {
-      if (oldTimes[i] != newTimes[i]) {
-        moveFunc(oldTimes[i], newTimes[i]);
-        break;
-      }
-    }
-    this.keyframeOldTimesRewriteable = true;
+    this.getTrackTags = this.getTrackTags.bind(this);
+    this.stickToKeyframe = this.stickToKeyframe.bind(this);
   }
   handleDurationInputChange(event: React.FocusEvent<HTMLInputElement>, setDuration: (duration: number) => void) {
     let newDuration = parseInt(event.target.value);
     setDuration(newDuration);
   }
-  componentWillReceiveProps(newProps: KeyframeSliderProps) {
-    this.setState({
-      duration: newProps.duration,
-      times: newProps.times
-    });
-  }
-  getPropsMarks(duration: number): Marks {
-    let res: Marks = {};
+  private getTrackTags(duration: number): Tag[] {
+    let res: Tag[] = [];
     let step: number = 1;
     let seconds = Math.floor(duration / 1000);
 
@@ -805,12 +967,18 @@ export class KeyframeSlider extends React.Component<KeyframeSliderProps, Keyfram
     else step = 60;
 
     if (step < 60) {
-      for (let i = 0; i < duration / 1000 / step; i++) {
-        res[i * 1000 * step] = (i * step).toString() + "s";
+      for (let i = 1; i <= duration / 1000 / step; i++) {
+        res.push({
+          value: i * 1000 * step - 1,
+          label: (i * step).toString() + "s"
+        })
       }
     } else {
-      for (let i = 0; i < duration / 1000 / step; i++) {
-        res[i * 1000 * step] = ((i * step) / 60).toString() + "min";
+      for (let i = 1; i <= duration / 1000 / step; i++) {
+        res.push({
+          value: i * 1000 * step - 1,
+          label: ((i * step) / 60).toString() + "min"
+        })
       }
     }
 
@@ -823,8 +991,20 @@ export class KeyframeSlider extends React.Component<KeyframeSliderProps, Keyfram
     }
     return res;
   }
-  RangeTipFormatter(value: number): string {
-    return (value / 1000).toString() + "s";
+  stickToKeyframe(newTime: number) {
+    const distanceLimit: number = 100
+    let minDistance = distanceLimit + 1, stickTime = -1;
+    this.props.times.forEach(time => {
+      const distance = Math.abs(newTime - time)
+      if (distance < minDistance) {
+        minDistance = distance;
+        stickTime = time
+      }
+    })
+    if (stickTime !== -1) {
+      this.props.setSyncPose();
+      this.props.updateCurrentTime(stickTime, true)
+    }
   }
   render() {
     return (
@@ -832,265 +1012,58 @@ export class KeyframeSlider extends React.Component<KeyframeSliderProps, Keyfram
         {({
           duration,
           currentTime,
-          updateCurrentTime,
           isPlaying,
           toggleIsPlaying,
-          setDuration,
-          jumpToNeighborKeyframe,
           addKeyframe,
           deleteKeyframe,
           moveKeyframe,
-          setSyncPose
-        }) => (
-          <div>
-            <RangeWithTooltip
-              tipFormatter={this.RangeTipFormatter}
-              min={0}
-              max={duration - 1}
-              marks={this.getPropsMarks(duration)}
-              trackStyle={this.getPropsTrackStyle(this.state.times.length)}
-              handle={this.handleGenerator}
-              defaultValue={this.props.times}
-              value={this.state.times}
-              allowCross={false}
-              onBeforeChange={this.beforeMoveOneKeyframe}
-              onChange={(val: number[]) => this.setState({times: val})}
-              onAfterChange={val => this.afterMoveOneKeyframe(this.keyframeOldTimes, val, moveKeyframe)}
+          isKeyframe,
+          keyframes
+        }) => {
+          return <div>
+            <this.WrappedRange values={this.props.times} min={0} max={duration - 1} minNeighborDistance={softrobot.device.robotInfo.MS_PER_MOVEMENT_TICK}
+              onChange={(index: number, oldValue: number, newValue: number) => moveKeyframe(index, newValue)}
+              onAfterChange={moveKeyframe}
+              onEmphasize={deleteKeyframe}
             />
-            <TimePointer
+            <Track min={0} max={duration - 1} tags={this.getTrackTags(duration)} />
+            <this.WrappedTimePointer
               duration={duration}
               currentTime={currentTime}
-              updateCurrentTime={updateCurrentTime}
-              addKeyframe={() => addKeyframe()}
-              setSyncPose={setSyncPose}
+              updateCurrentTime={this.props.updateCurrentTime}
+              addKeyframe={addKeyframe}
+              setSyncPose={this.props.setSyncPose}
+              onAfterChange={this.stickToKeyframe}
             />
             <div className="ui grid">
-              <div className="twelve wide column">
+              <div className="four wide column">
                 <div className="ui icon buttons left floated">
-                  <button className="ui button" onClick={() => jumpToNeighborKeyframe(false)}>
-                    <i className="angle left icon" />
-                  </button>
                   <button className="ui icon button" onClick={toggleIsPlaying}>
                     {isPlaying ? <i className="pause icon" /> : <i className="play icon" />}
                   </button>
-                  <button className="ui button" onClick={() => jumpToNeighborKeyframe(true)}>
-                    <i className="angle right icon" />
-                  </button>
                 </div>
-
-                <div className="ui icon buttons left floated">
-                  <button
+              </div>
+              <div className="four wide column" />
+              <div className="four wide column" />
+              <div className="four wide column">
+                <div className="ui icon buttons right floated">
+                  {!isKeyframe && keyframes.length < MAX_KEYFRAME_COUNT ? <button
                     className="ui button"
                     onClick={() => {
                       addKeyframe();
                     }}
                   >
                     <i className="plus icon" />
-                  </button>
-                  <button className="ui button" onClick={deleteKeyframe}>
+                  </button> : undefined }
+                  {isKeyframe && keyframes.length > 1 ? <button className="ui button" onClick={() => deleteKeyframe()}>
                     <i className="minus icon" />
-                  </button>
-                </div>
-
-                <div className="ui right labeled left icon input left floated">
-                  <i className="clock icon" />
-                  <input
-                    type="number"
-                    placeholder="Duration"
-                    onChange={(event: React.ChangeEvent<HTMLInputElement>) => {
-                      this.setState({ duration: parseInt(event.target.value) });
-                    }}
-                    onBlur={event => this.handleDurationInputChange(event, setDuration)}
-                    value={this.state.duration}
-                  />
-                  <div className="ui basic label">ms</div>
+                  </button> : undefined}
                 </div>
               </div>
-              <div className="four wide column" />
             </div>
           </div>
-        )}
+        }}
       </MovementDialogContext.Consumer>
-    );
-  }
-}
-
-// TimePointer
-interface TimePointerProps {
-  duration: number;
-  currentTime: number;
-
-  updateCurrentTime: (newTime: number, isKeyframe?: boolean) => void;
-  addKeyframe: () => void;
-  setSyncPose: () => void;
-}
-interface TimePointerState {
-  pointerStyle: React.CSSProperties
-}
-export class TimePointer extends React.Component<TimePointerProps, TimePointerState> {
-  pointerBarStyle: React.CSSProperties = {
-    width: "100%",
-    //background: "grey",
-    margin: "0px 0px 10px 0px"
-  };
-  pointerStyle: React.CSSProperties = {
-    width: 6,
-    height: 20,
-    borderLeft: "3px solid transparent",
-    borderRight: "3px solid transparent",
-    borderBottom: "20px solid red",
-    position: "relative",
-    left: "50%",
-    marginLeft: -3,
-    cursor: "default"
-  };
-  pointerStyleHover: React.CSSProperties = {
-    width: 12,
-    height: 30,
-    borderLeft: "6px solid transparent",
-    borderRight: "6px solid transparent",
-    borderBottom: "30px solid red",
-    position: "relative",
-    left: "50%",
-    marginLeft: -6,
-    cursor: "move"
-  };
-  pointerBarDiv: React.RefObject<HTMLDivElement>;
-  isDragging: boolean;
-
-  constructor(props: TimePointerProps) {
-    super(props);
-
-    this.pointerBarDiv = React.createRef<HTMLDivElement>();
-
-    this.pointerStyle.left = ((this.props.currentTime / (this.props.duration - 1)) * 100).toString() + "%";
-
-    this.isDragging = false;
-
-    this.state = {
-      pointerStyle: this.pointerStyle
-    };
-
-    this.onPressPointerBar = this.onPressPointerBar.bind(this);
-    this.onDoubleClickPointerBar = this.onDoubleClickPointerBar.bind(this);
-    this.onMouseMovePointerBar = this.onMouseMovePointerBar.bind(this);
-    this.onTouchPointerBar = this.onTouchPointerBar.bind(this);
-    this.onTouchMovePointerBar = this.onTouchMovePointerBar.bind(this);
-    this.onEndDrag = this.onEndDrag.bind(this);
-    this.expandPointer = this.expandPointer.bind(this);
-    this.shrinkPointer = this.shrinkPointer.bind(this);
-  }
-
-  onPressPointerBar(event: React.MouseEvent<HTMLDivElement>) {
-    let x = event.clientX,
-      y = event.clientY;
-    if (!this.pointerBarDiv.current) return;
-    let offsetLeft = this.pointerBarDiv.current.getBoundingClientRect().left,
-      offsetWidth = this.pointerBarDiv.current.offsetWidth;
-    let newTime = Math.round(((x - offsetLeft) / offsetWidth) * this.props.duration) - 1;
-    this.props.setSyncPose();
-    this.props.updateCurrentTime(newTime);
-
-    this.expandPointer();
-    this.isDragging = true;
-
-    document.onmousemove = this.onMouseMovePointerBar.bind(this);
-    document.onmouseup = this.onEndDrag;
-  }
-  onTouchPointerBar(event: React.TouchEvent<HTMLDivElement>) {
-    let x = event.touches[0].clientX,
-      y = event.touches[0].clientY;
-    if (!this.pointerBarDiv.current) return;
-    let offsetLeft = this.pointerBarDiv.current.getBoundingClientRect().left,
-      offsetWidth = this.pointerBarDiv.current.offsetWidth;
-    let newTime = Math.round(((x - offsetLeft) / offsetWidth) * this.props.duration) - 1;
-    this.props.setSyncPose();
-    this.props.updateCurrentTime(newTime);
-
-    this.expandPointer();
-    this.isDragging = true;
-
-    document.ontouchmove = this.onMouseMovePointerBar.bind(this);
-    document.ontouchend = this.onEndDrag;
-  }
-  onEndDrag() {
-    document.ontouchmove = null;
-    document.ontouchend = null;
-    this.shrinkPointer();
-    this.isDragging = false;
-  }
-  onDoubleClickPointerBar(event: React.MouseEvent<HTMLDivElement>) {
-    this.props.addKeyframe();
-  }
-  onMouseMovePointerBar(event: React.MouseEvent<HTMLDivElement>) {
-    if (event.buttons == 1) {  // Only auxiliary button pressed, usually the wheel button or the middle button (if present)
-      event.preventDefault();
-      let x = event.clientX,
-        y = event.clientY;
-      if (!this.pointerBarDiv.current) return;
-      let offsetLeft = this.pointerBarDiv.current.getBoundingClientRect().left,
-        offsetWidth = this.pointerBarDiv.current.offsetWidth;
-      let newTime = Math.round(((x - offsetLeft) / offsetWidth) * this.props.duration) - 1;
-      if (newTime < 0) newTime = 0;
-      else if (newTime > this.props.duration - 1) newTime = this.props.duration - 1;
-      this.props.updateCurrentTime(newTime);
-    }
-  }
-  onTouchMovePointerBar(event: React.TouchEvent<HTMLDivElement>) {
-    event.preventDefault();
-    let x = event.touches[0].clientX,
-      y = event.touches[0].clientY;
-    if (!this.pointerBarDiv.current) return;
-    let offsetLeft = this.pointerBarDiv.current.getBoundingClientRect().left,
-      offsetWidth = this.pointerBarDiv.current.offsetWidth;
-    let newTime = Math.round(((x - offsetLeft) / offsetWidth) * this.props.duration) - 1;
-    if (newTime < 0) newTime = 0;
-    else if (newTime > this.props.duration - 1) newTime = this.props.duration - 1;
-    this.props.updateCurrentTime(newTime);
-  }
-
-  expandPointer() {
-    let left = this.state.pointerStyle.left;
-    this.setState({
-      pointerStyle: {
-        ...this.pointerStyleHover,
-        left: left
-      }
-    })
-    document.body.style.cursor = "move";
-  }
-  shrinkPointer() {
-    let left = this.state.pointerStyle.left;
-    this.setState({
-      pointerStyle: {
-        ...this.pointerStyle,
-        left: left
-      }
-    })
-    document.body.style.cursor = "default";
-  }
-
-  render() {
-    const pointerStyleNew = {
-      ...this.state.pointerStyle,
-      left: ((this.props.currentTime / (this.props.duration - 1)) * 100).toString() + "%"
-    };
-
-    // this.pointerStyle.left = ((this.props.currentTime/(this.props.duration-1))*100).toString() + "%";
-    return (
-      <div
-        style={this.pointerBarStyle}
-        onMouseDown={this.onPressPointerBar}
-        onMouseUp={this.onEndDrag}
-        onDoubleClick={this.onDoubleClickPointerBar}
-        // onMouseMove={this.onMouseMovePointerBar}
-        onTouchStart={this.onTouchPointerBar}
-        onMouseEnter={() => {if (!this.isDragging) this.expandPointer();}}
-        onMouseLeave={() => {if (!this.isDragging) this.shrinkPointer();}}
-        ref={this.pointerBarDiv}
-      >
-        <div style={pointerStyleNew} />
-      </div>
     );
   }
 }
@@ -1103,9 +1076,9 @@ interface MotorInputsProps {
   changeMotorIdList: (newList: number[]) => void;
 
   checkedMotorIds: boolean[];
+  motorLengthLimitsBound: number[][];
 }
-interface MotorInputsState {}
-export class MotorInputs extends React.Component<MotorInputsProps, MotorInputsState> {
+export class MotorInputs extends React.Component<MotorInputsProps> {
   constructor(props: MotorInputsProps) {
     super(props);
 
@@ -1129,7 +1102,7 @@ export class MotorInputs extends React.Component<MotorInputsProps, MotorInputsSt
   render() {
     return (
       <MovementDialogContext.Consumer>
-        {({ motorIdList, changeMotorIdList, setKeyframe, sendWSDirect1, isPlaying }) => (
+        {({ motorIdList, changeMotorIdList, setKeyframe, sendWSDirect1, isPlaying, motorLengthLimits, isKeyframe }) => (
           <div>
             <div className="ui segments">
               {this.props.motorIdList.map((ele, idx) => {
@@ -1137,23 +1110,32 @@ export class MotorInputs extends React.Component<MotorInputsProps, MotorInputsSt
                   <MotorInput
                     key={idx * 77 + ele * 7}
                     inputId={idx}
+                    disabled={!isKeyframe}
                     checkedMotorIds={this.props.checkedMotorIds}
                     motorIdList={motorIdList}
                     changeMotorIdList={changeMotorIdList}
                     setKeyframe={setKeyframe}
                     motorId={this.props.motorIdList[idx]}
                     motorPose={this.props.motorPoses[idx]}
+                    motorLengthLimits={motorLengthLimits[this.props.motorIdList[idx]]}
+                    motorLengthLimitsBound={this.props.motorLengthLimitsBound[idx]}
                     sendWSDirect1={(motorId: number, pose: number) => {if (!isPlaying) sendWSDirect1(motorId, pose)}}
                   />
                 );
               })}
             </div>
             {this.firstAvailableMotorId() >= 0 ? (
-              <button className="ui icon button" onClick={this.onAddMotorId}>
-                <i className="plus icon" />
-              </button>
-            ) : (
-              undefined
+                <div className="ui grid">
+                  <div className="fourteen wide column">
+                  </div>
+                  <div className="two wide column">
+                      <button className="ui icon button right floated" onClick={this.onAddMotorId}>
+                      <i className="plus icon"></i>
+                      </button>
+                  </div>
+              </div>
+              ) : (
+                undefined
             )}
           </div>
         )}
@@ -1167,45 +1149,42 @@ interface MotorInputProps {
   inputId: number; // index of this input in all inputs
   checkedMotorIds: boolean[]; // checked motorIds for dropdown
 
+  disabled: boolean;  // lock slider when current time is not keyframe
+
   motorIdList: number[];
   changeMotorIdList: (newList: number[]) => void;
   setKeyframe: (poseId: number, value: number) => void;
 
   motorId: number;
   motorPose: number;
+  motorLengthLimits: number[]; // [min, max]
+  motorLengthLimitsBound: number[]; // [max-min, min-max]
 
   sendWSDirect1: (motorId: number, pose: number) => void;
 }
-interface MotorInputState {
-  sliderValue: number;
-}
-export class MotorInput extends React.Component<MotorInputProps, MotorInputState> {
+export class MotorInput extends React.Component<MotorInputProps> {
+  private WrappedSlider = DragBar<SliderProps>(MySlider, "auto")
+
+  private readonly containerStyle: React.CSSProperties = {
+    display: "flex",
+    alignItems: "center"
+  }
+  private readonly itemLeft: React.CSSProperties = {
+    padding: "5px 20px 5px 10px"
+  }
+  private readonly itemMiddle: React.CSSProperties = {
+    flexGrow: 100
+  }
+  private readonly itemRight: React.CSSProperties = {
+    padding: "5px 0px 5px 20px"
+  }
+
   constructor(props: MotorInputProps) {
     super(props);
 
-    this.state = {
-      sliderValue: this.props.motorPose
-    };
-
-    this.setSliderValue = this.setSliderValue.bind(this);
     this.onChangeMotorId = this.onChangeMotorId.bind(this);
     this.onChangeMotorPose = this.onChangeMotorPose.bind(this);
     this.onDeleteMotorId = this.onDeleteMotorId.bind(this);
-  }
-  componentWillReceiveProps(newProps: MotorInputProps) {
-    const oldProps = this.props;
-    if (oldProps.motorPose !== newProps.motorPose) {
-      this.setState({
-        sliderValue: newProps.motorPose
-      });
-    }
-  }
-  private setSliderValue(e: number) {
-    console.log("setSliederValue");
-    this.setState({
-      sliderValue: e
-    });
-    this.props.sendWSDirect1(this.props.motorId, e);
   }
 
   onChangeMotorId(event: React.ChangeEvent<HTMLSelectElement>) {
@@ -1230,18 +1209,36 @@ export class MotorInput extends React.Component<MotorInputProps, MotorInputState
 
     this.props.changeMotorIdList(list);
   }
-  onChangeMotorPose(pose: number) {
-    this.props.setKeyframe(this.props.inputId, pose);
+  onChangeMotorPose(pose: number, end: boolean) {
+    this.props.setKeyframe(this.props.inputId, Math.round(pose));
+    this.props.sendWSDirect1(this.props.motorId, pose);
   }
   onDeleteMotorId() {
     let list = Object.assign([], this.props.motorIdList);
     list.splice(this.props.inputId, 1);
     this.props.changeMotorIdList(list);
   }
+  onChangeLimit = (value: number, isMin: boolean) => {
+    const {
+      motorId,
+      motorLengthLimitsBound
+    } = this.props
+    value = Math.round(value)
+
+    if (isMin === true) {
+      if (value > motorLengthLimitsBound[0]) value = motorLengthLimitsBound[0]
+      softrobot.device.robotState.motor[motorId].lengthMin = value
+    } else {
+      if (value < motorLengthLimitsBound[1]) value = motorLengthLimitsBound[1]
+      softrobot.device.robotState.motor[motorId].lengthMax = value
+    }
+  }
   render() {
+    const min = this.props.motorLengthLimits[0]
+    const max = this.props.motorLengthLimits[1]
     return (
-      <div className="ui grid segment">
-        <div className="two wide column">
+      <div style={this.containerStyle}>
+        <div style={this.itemLeft}>
           <select className="uidropdown" onChange={this.onChangeMotorId} value={this.props.motorId}>
             {this.props.checkedMotorIds.map((item, idx) => {
               if (idx == this.props.motorId) {
@@ -1266,18 +1263,20 @@ export class MotorInput extends React.Component<MotorInputProps, MotorInputState
             })}
           </select>
         </div>
-        <div className="thirteen wide column">
-          <SliderWithTooltip
-            min={-5000}
-            max={5000}
+        <div style={this.itemMiddle}>
+          <this.WrappedSlider
+            min={min}
+            max={max}
             step={1}
-            defaultValue={this.props.motorPose}
-            value={this.state.sliderValue}
-            onChange={this.setSliderValue}
-            onAfterChange={this.onChangeMotorPose}
+            disabled={this.props.disabled}
+            value={this.props.motorPose}
+            onChange={(oldVal, newVal) => this.onChangeMotorPose(newVal, false)}
+            onAfterChange={(val) => this.onChangeMotorPose(val, true)}
+            tags={[{value: min, label: min.toString()}, {value: max, label: max.toString()}]}
+            onChangeLimit={this.onChangeLimit}
           />
         </div>
-        <div className="one wide column">
+        <div style={this.itemRight}>
           <button className="ui icon button" onClick={this.onDeleteMotorId}>
             <i className="minus icon" />
           </button>
