@@ -63,7 +63,8 @@
         "no-function-constructor-with-string-args": true,
         "no-http-string": [
             true,
-            "http://www.w3.org/?.*"
+            "http://www.w3.org/?.*",
+            "http://maker.ifttt.com/trigger/*"
         ],
         "no-inner-html": true,
         "no-octal-literal": true,
@@ -132,7 +133,7 @@
         // pxt:override "promise-function-async": true,
         // pxt:override (TODO 1) "promise-must-complete": true,
         // pxt:override "radix": true,
-        "react-this-binding-issue": true,
+        "react-this-binding-issue": false,           // REVIEW true => false
         "react-unused-props-and-state": true,
         // pxt:override (TODO) "restrict-plus-operands": true, // the plus operand should really only be used for strings and numbers
         // pxt:override "strict-boolean-expressions": true,
@@ -228,7 +229,7 @@
           */
         "react-a11y-anchors": true,
         "react-a11y-aria-unsupported-elements": true,
-        "react-a11y-event-has-role": true,
+        "react-a11y-event-has-role": false,                 // REVIEW true => false
         "react-a11y-image-button-has-alt": true,
         "react-a11y-img-has-alt": true,
         "react-a11y-lang": true,
@@ -236,7 +237,7 @@
         "react-a11y-props": true,
         "react-a11y-proptypes": true,
         "react-a11y-role": true,
-        "react-a11y-role-has-required-aria-props": true,
+        "react-a11y-role-has-required-aria-props": false,       // REVIEW true => false
         "react-a11y-role-supports-aria-props": true,
         "react-a11y-tabindex-no-positive": true,
         "react-a11y-titles": true

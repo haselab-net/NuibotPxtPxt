@@ -591,7 +591,7 @@ namespace pxsim.instructions {
             type: "run",
             code: "",
             boardDefinition: options.boardDef,
-            partDefinitions: options.partDefinitions
+            partDefinitions: options.partDefinitions,
         }
         pxsim.runtime = new Runtime(msg);
         pxsim.runtime.board = null;

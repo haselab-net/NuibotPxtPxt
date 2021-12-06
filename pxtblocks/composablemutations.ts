@@ -283,6 +283,66 @@ namespace pxt.blocks {
         }
     }
 
+    export function addBlockTestButton(b: Blockly.Block, type: string) {
+        function showTestPopup() {
+            switch (type) {
+                case "IFTTT": {
+                    // get val
+                    let key_val = b.getChildren()[0].inputList[0].fieldRow[0].getValue();
+                    let event_val = b.getChildren()[1].inputList[0].fieldRow[0].getValue();
+                    let value1_val = b.getChildren()[2].inputList[0].fieldRow[0].getValue();
+                    let value2_val = b.getChildren()[3].inputList[0].fieldRow[0].getValue();
+                    let value3_val = b.getChildren()[4].inputList[0].fieldRow[0].getValue();
+
+                    // get request
+                    let url = `maker.ifttt.com/trigger/${event_val}/with/key/${key_val}`;
+                    let params: string[][] = [
+                        ["value1", value1_val],
+                        ["value2", value2_val],
+                        ["value3", value3_val]
+                    ];
+
+                    softrobot.editor.showWebhookTester(lf("Test IFTTT"), url, params);
+                    break;
+                }
+                case "Webhook": {
+                    let url = b.getChildren()[0].inputList[0].fieldRow[0].getValue();
+                    let params_str = b.inputList[2].fieldRow[0].getValue().replace(/\`/g, "");
+
+                    let params = decodeURI(params_str).split("&").filter(val => val != "").map(val => val.split("="));
+                    softrobot.editor.showWebhookTester(lf("Test Webhook"), url, params);
+                    break;
+                }
+                case "MQTT Sender": {
+                    // get val
+                    let nuibotId_val = b.getChildren()[0].inputList[0].fieldRow[0].getValue();
+                    let event_val = b.getChildren()[1].inputList[0].fieldRow[0].getValue();
+
+                    // get request
+                    let url = `nuibot.haselab.net:5001/trigger/${event_val}/with/key/${nuibotId_val}`;
+                    let params: string[][] = [];
+
+                    softrobot.editor.showWebhookTester(lf("MQTT Trigger"), url, params);
+                    break;
+                }
+                case "MQTT Listener": {
+                    let event_val = b.getChildren()[0].inputList[0].fieldRow[0].getValue();
+
+                    softrobot.editor.showMQTTTester(localStorage.getItem(softrobot.device.ParameterKey.nuibotId), event_val)
+                    break;
+                }
+                default: {
+                    console.error("Wrong fn.attributes.blockTestButton: ", type);
+                    break;
+                }
+            }
+        }
+
+        let playButton = "data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0idXRmLTgiPz4NCjwhLS0gR2VuZXJhdG9yOiBBZG9iZSBJbGx1c3RyYXRvciAyMi4xLjAsIFNWRyBFeHBvcnQgUGx1Zy1JbiAuIFNWRyBWZXJzaW9uOiA2LjAwIEJ1aWxkIDApICAtLT4NCjxzdmcgdmVyc2lvbj0iMS4xIiBpZD0iQ2FwYV8xIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHhtbG5zOnhsaW5rPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5L3hsaW5rIiB4PSIwcHgiIHk9IjBweCINCgkgdmlld0JveD0iMCAwIDMxNC4xIDMxNC4xIiBzdHlsZT0iZW5hYmxlLWJhY2tncm91bmQ6bmV3IDAgMCAzMTQuMSAzMTQuMTsiIHhtbDpzcGFjZT0icHJlc2VydmUiPg0KPHN0eWxlIHR5cGU9InRleHQvY3NzIj4NCgkuc3Qwe2ZpbGw6I0ZGRkZGRjt9DQo8L3N0eWxlPg0KPGc+DQoJPGcgaWQ9Il94MzNfNTYuX1BsYXkiPg0KCQk8Zz4NCgkJCTxwYXRoIGNsYXNzPSJzdDAiIGQ9Ik0yOTMsNzguNUMyNDkuNiwzLjQsMTUzLjYtMjIuMyw3OC41LDIxLjFDMy40LDY0LjQtMjIuMywxNjAuNCwyMS4xLDIzNS41YzQzLjMsNzUuMSwxMzkuNCwxMDAuOCwyMTQuNSw1Ny41DQoJCQkJQzMxMC42LDI0OS42LDMzNi40LDE1My42LDI5Myw3OC41eiBNMjE5LjgsMjY1LjhjLTYwLjEsMzQuNy0xMzYuOSwxNC4xLTE3MS42LTQ2Yy0zNC43LTYwLjEtMTQuMS0xMzYuOSw0Ni0xNzEuNg0KCQkJCWM2MC4xLTM0LjcsMTM2LjktMTQuMSwxNzEuNiw0NkMzMDAuNSwxNTQuMywyNzkuOSwyMzEuMSwyMTkuOCwyNjUuOHogTTIxMy42LDE1MC43bC04Mi4yLTQ3LjljLTcuNS00LjQtMTMuNS0wLjktMTMuNSw3LjgNCgkJCQlsMC40LDk1LjJjMCw4LjcsNi4yLDEyLjIsMTMuNyw3LjlsODEuNi00Ny4xQzIyMSwxNjIuMSwyMjEsMTU1LDIxMy42LDE1MC43eiIvPg0KCQk8L2c+DQoJPC9nPg0KPC9nPg0KPC9zdmc+DQo="
+        b.appendDummyInput(name)
+            .appendField(new Blockly.FieldImage(playButton, 24, 24, false, lf("test block"), showTestPopup))
+    }
+
     function shadowBlockForType(type: string) {
         switch (type) {
             case "number": return "math_number";

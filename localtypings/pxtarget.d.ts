@@ -48,6 +48,7 @@ declare namespace pxt {
         ignoreDocsErrors?: boolean;
         variants?: Map<AppTarget>; // patches on top of the current AppTarget for different chip variants
         queryVariants?: Map<AppTarget>; // patches on top of the current AppTarget using query url regex
+        softRobot?: sr.SoftRobotConfig; // soft robot
     }
 
     interface ProjectTemplate {
@@ -319,6 +320,13 @@ declare namespace pxt {
         name: string;
         path?: string;
         subitems?: TOCMenuEntry[];
+
+        prevName?: string;
+        prevPath?: string;
+
+        nextName?: string;
+        nextPath?: string;
+
         markdown?: string;
     }
 
@@ -338,11 +346,11 @@ declare namespace ts.pxtc {
         slowMethods?: boolean;
         slowFields?: boolean;
         skipClassCheck?: boolean;
-        noThisCheckOpt?: boolean;        
+        noThisCheckOpt?: boolean;
         numFloat?: boolean;
         noTreeShake?: boolean;
         inlineConversions?: boolean;
-        noPeepHole?: boolean;        
+        noPeepHole?: boolean;
     }
 
     interface CompileTarget {
@@ -444,5 +452,27 @@ declare namespace ts.pxtc {
         pid: string;
         usagePage: string;
         usageId: string;
+    }
+}
+
+// namespace for soft robot
+declare namespace sr{
+    interface SoftRobotConfig{
+        corsProxy: string;          // proxy server address for cross domain http request (used in testing webhook), refer to https://github.com/Rob--W/cors-anywhere
+        mqttHttpServer: string;
+        firmwareVersionServer: string;
+        compile: CompileConfig;
+        ui: ui;
+        test: boolean;
+        noUpdateFirmwarePopup: boolean;
+    }
+
+    // the configeration for compile blocks and upload code to softrobot
+    interface CompileConfig{
+        isNative: boolean; // pure simulator(false) or soft robot target(true)
+    }
+
+    interface ui {
+
     }
 }

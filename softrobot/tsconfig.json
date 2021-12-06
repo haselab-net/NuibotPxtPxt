@@ -1,0 +1,28 @@
+{
+    "compilerOptions": {
+        "target": "es5",
+        "noImplicitAny": true,
+        "noImplicitReturns": true,
+        "declaration": true,
+        "out": "../built/softrobot.js",
+        "newLine": "LF",
+        "sourceMap": false,
+        "lib": ["dom", "dom.iterable", "scripthost", "es6"],
+        "types": ["bluebird"]
+    },
+    "files": [
+        "command.ts",
+        "util.ts",
+        "device.ts",
+        "editor.ts",
+        "extensions.ts",
+        "jsfile.ts",
+        "message_command_callbacks.ts",
+        "message_command.ts",
+        "movement.ts",
+        "packet_command.ts",
+        "settings.ts",
+        "sim.ts",
+        "socket.ts"
+    ]
+}

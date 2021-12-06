@@ -2,6 +2,7 @@ import * as React from "react";
 import * as ReactDOM from "react-dom";
 import * as sui from "./sui";
 import * as core from "./core";
+import * as softrobot from "./softrobot";
 
 interface CoreDialogState {
     visible?: boolean;
@@ -26,6 +27,7 @@ export class CoreDialog extends React.Component<core.PromptOptions, CoreDialogSt
         this.hide = this.hide.bind(this);
         this.modalDidOpen = this.modalDidOpen.bind(this);
         this.handleInputChange = this.handleInputChange.bind(this);
+        this.onSelectedItemChange = this.onSelectedItemChange.bind(this);
     }
 
     hide() {
@@ -88,6 +90,16 @@ export class CoreDialog extends React.Component<core.PromptOptions, CoreDialogSt
         this.setState({ inputValue: v.target.value });
     }
 
+    /**
+     * call back when the selected ip is changed 
+     * @param ip the ip selected in the IPList
+     * @author gzl
+     * @deprecated
+     */
+    onSelectedItemChange (ip: string) {
+        this.setState({ inputValue: ip});
+    }
+
     render() {
         const options = this.props;
         const { inputValue } = this.state;
@@ -97,7 +109,8 @@ export class CoreDialog extends React.Component<core.PromptOptions, CoreDialogSt
         buttons.forEach(btn => {
             const onclick = btn.onclick;
             btn.onclick = () => {
-                this.close(onclick ? onclick() : 0);
+                if (btn.approveButton === false) onclick();
+                else this.close(onclick ? onclick() : 0);
             }
             if (!btn.className) btn.className = "approve positive";
             if (btn.approveButton) this.okButton = btn;
@@ -121,9 +134,10 @@ export class CoreDialog extends React.Component<core.PromptOptions, CoreDialogSt
                 closeOnEscape={!options.hideCancel}
                 modalDidOpen={this.modalDidOpen}
             >
-                {options.type == 'prompt' ? <div className="ui fluid icon input">
+                {options.type == 'prompt' || options.type == 'choose' ? <div className="ui fluid icon input">
                     <input autoFocus type="text" ref="promptInput" onChange={this.handleInputChange} value={inputValue} placeholder={options.placeholder} />
                 </div> : undefined}
+                {/* {options.type == 'choose' ? <softrobot.IPList onSelectChange={this.onSelectedItemChange} /> : undefined} */}
                 {options.jsx}
                 {options.body ? <p>{options.body}</p> : undefined}
                 {options.htmlBody ? <div dangerouslySetInnerHTML={{ __html: options.htmlBody }} /> : undefined}

@@ -1221,6 +1221,25 @@ ${output}</xml>`;
             return res;
         }
 
+        function getMovementStatement(node: ts.CallExpression, info: pxtc.CallInfo) {
+            console.log("get movement statement")
+            let arg = node.arguments[0];
+            if (arg.kind != SK.StringLiteral && arg.kind != SK.NoSubstitutionTemplateLiteral) {
+                error(node);
+                return undefined;
+            }
+
+            const attributes = attrs(info);
+            const res = mkStmt(attributes.blockId);
+            res.fields = [];
+
+            const movement = (arg as ts.StringLiteral).text || '';
+            console.log(movement);
+            res.fields.push(getField(`MOVEMENT`, `\`${movement}\``));
+
+            return res;
+        }
+
         function getBinaryExpressionStatement(n: ts.BinaryExpression): StatementNode {
             const name = (n.left as ts.Identifier).text;
 
@@ -1512,6 +1531,9 @@ ${output}</xml>`;
 
             if (attributes.imageLiteral) {
                 return getImageLiteralStatement(node, info);
+            }
+            if (attributes.movementEditor) {
+                return getMovementStatement(node, info);
             }
 
             if (ts.isFunctionLike(info.decl)) {
@@ -2239,6 +2261,10 @@ ${output}</xml>`;
                 if (nc * 5 != leds.length) {
                     return Util.lf("Invalid image pattern");
                 }
+                return undefined;
+            }
+            if (attributes.movementEditor) {
+                console.log("decompile check call, movement editor")
                 return undefined;
             }
 

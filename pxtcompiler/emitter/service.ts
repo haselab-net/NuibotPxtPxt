@@ -632,6 +632,13 @@ namespace ts.pxtc.service {
         compile: v => {
             return compile(v.options)
         },
+        /**
+         * entrance for worker to compile for softrobot
+         * @author gzl
+         */
+        compileSoftrobot: v => {
+            return compileSoftrobot(v.options)
+        },
         decompile: v => {
             const bannedCategories = v.blocks ? v.blocks.bannedCategories : undefined;
             return decompile(v.options, v.fileName, false, bannedCategories);

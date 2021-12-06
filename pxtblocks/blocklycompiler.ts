@@ -791,6 +791,10 @@ namespace pxt.blocks {
                     if (call.imageLiteral)
                         expr = compileImage(e, b, call.imageLiteral, call.namespace, call.f,
                             visibleParams(call, countOptionals(b)).map(ar => compileArgument(e, b, ar, comments)))
+                    else if (call.movementEditor) {
+                        expr = compileMovement(e, b, call.imageLiteral, call.namespace, call.f,
+                            visibleParams(call, countOptionals(b)).map(ar => compileArgument(e, b, ar, comments)))
+                    }
                     else
                         expr = compileStdCall(e, b, call, comments);
                 }
@@ -1076,6 +1080,10 @@ namespace pxt.blocks {
         const call = e.stdCallTable[b.type];
         if (call.imageLiteral)
             return mkStmt(compileImage(e, b, call.imageLiteral, call.namespace, call.f, visibleParams(call, countOptionals(b)).map(ar => compileArgument(e, b, ar, comments))))
+        else if (call.movementEditor) {
+            console.log("compile call movement editor")
+            return mkStmt(compileMovement(e, b, call.imageLiteral, call.namespace, call.f, visibleParams(call, countOptionals(b)).map(ar => compileArgument(e, b, ar, comments))))
+        }
         else if (call.hasHandler)
             return compileEvent(e, b, call, eventArgs(call, b), call.namespace, comments)
         else
@@ -1243,6 +1251,15 @@ namespace pxt.blocks {
         return H.namespaceCall(n, f, [lit].concat(args), false);
     }
 
+    function compileMovement(e: Environment, b: Blockly.Block, frames: number, n: string, f: string, args?: JsNode[]): JsNode {
+        args = args === undefined ? [] : args;
+        let movement = b.getFieldValue("MOVEMENT");
+        movement = movement.replace(/[`\t]+/g, '');
+        let lit = H.mkStringLiteral(movement);
+        lit.canIndentInside = true;     // REVIEW what canIndentInside actually do?
+        return H.namespaceCall(n, f, [lit].concat(args), false);
+    }
+
     // A description of each function from the "device library". Types are fetched
     // from the Blockly blocks definition.
     // - the key is the name of the Blockly.Block that we compile into a device call;
@@ -1261,6 +1278,7 @@ namespace pxt.blocks {
         isExtensionMethod?: boolean;
         isExpression?: boolean;
         imageLiteral?: number;
+        movementEditor?: number;
         hasHandler?: boolean;
         property?: boolean;
         namespace?: string;
@@ -1462,6 +1480,7 @@ namespace pxt.blocks {
                         isExtensionMethod: instance,
                         isExpression: fn.retType && fn.retType !== "void",
                         imageLiteral: fn.attributes.imageLiteral,
+                        movementEditor: fn.attributes.movementEditor,
                         hasHandler: !!comp.handlerArgs.length || fn.parameters && fn.parameters.some(p => (p.type == "() => void" || p.type == "Action" || !!p.properties)),
                         property: !fn.parameters,
                         isIdentity: fn.attributes.shim == "TD_ID"
@@ -1645,9 +1664,6 @@ namespace pxt.blocks {
                             if (shift >= 0 && Math.floor(shift) === shift) {
                                 newNode = H.mkAssign(mkText(name), H.mkSimpleCall("<<", [H.mkNumberLiteral(1), H.mkNumberLiteral(shift)]));
                             }
-                        } else if (info.isHash) {
-                            const hash = ts.pxtc.Util.codalHash16(name.toLowerCase());
-                            newNode = H.mkAssign(mkText(name), H.mkNumberLiteral(hash))
                         }
                         if (!newNode) {
                             if (value === lastValue + 1) {

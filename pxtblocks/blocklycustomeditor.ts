@@ -1,4 +1,3 @@
-
 namespace pxt.blocks {
 
     interface FieldEditorOptions {
@@ -43,6 +42,12 @@ namespace pxt.blocks {
         registerFieldEditor('speed', pxtblockly.FieldSpeed);
         registerFieldEditor('turnratio', pxtblockly.FieldTurnRatio);
         registerFieldEditor('protractor', pxtblockly.FieldProtractor);
+        registerFieldEditor('motorparam', pxtblockly.FieldMotorParam);
+        registerFieldEditor('length', pxtblockly.FieldLength);
+        registerFieldEditor('motor', pxtblockly.FieldMotor);
+        registerFieldEditor('motorparamtype', pxtblockly.FieldMotorParamType);
+        registerFieldEditor('movementname', pxtblockly.FieldMovementNameDropdown);
+        // registerFieldEditor('movement', pxtblockly.FieldMovement);
     }
 
     export function registerFieldEditor(selector: string, field: Blockly.FieldCustomConstructor, validator?: any) {
@@ -62,6 +67,21 @@ namespace pxt.blocks {
 
         if (!params) {
             params = {};
+        }
+
+        switch (selector) {
+            case "motorparam":
+                params.onParamChange = softrobot.message_command.updateRemoteMotorState;
+                break;
+            case "length":
+                params.onLengthChange = softrobot.message_command.updateRemoteMotorState;
+                break;
+            case "motor":
+                params.getNMotor = function() {
+                    return softrobot.device.robotInfo.nMotor;
+                };
+            default:
+                break;
         }
 
         Util.assert(params.lightMode == undefined, "lightMode is a reserved parameter for custom fields");

@@ -577,6 +577,26 @@ namespace pxt.blocks {
         buildBlockFromDef(fn.attributes._def);
         let hasHandler = false;
 
+        if (fn.attributes.movementEditor && !fn.attributes.httpParamEditor) {
+            let ri = block.appendDummyInput();
+            ri.appendField(new pxtblockly.FieldMovement("", {
+                showEditor: softrobot.editor.onFieldMovementClicked,
+                convertDisplayString: (str: string) => {
+                    let strContent = str.split("\n")[0];
+                    return strContent;
+                },
+                defaultCodeStr: "default_#a29bfe\n2 1 4000\n3 0\n1000 1000\n3000 0",
+                displayColor: true
+             }), "MOVEMENT");
+        }
+        else if (fn.attributes.movementEditor && fn.attributes.httpParamEditor) {
+            let ri = block.appendDummyInput();
+            ri.appendField(new pxtblockly.FieldMovement("", {
+                showEditor: softrobot.editor.onFieldHTTTPParamClicked,
+                defaultCodeStr: "value1=10"
+            }), "MOVEMENT");
+        }
+
         if (fn.attributes.mutate) {
             addMutation(block as MutatingBlock, fn, fn.attributes.mutate);
         }
@@ -610,6 +630,11 @@ namespace pxt.blocks {
                 });
             }
         }
+
+        if (fn.attributes.blockTestButton) {
+            addBlockTestButton(block, fn.attributes.blockTestButton);
+        }
+
         // Add mutation to save and restore custom field settings
         appendMutation(block, {
             mutationToDom: (el: Element) => {

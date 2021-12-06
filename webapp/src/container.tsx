@@ -7,6 +7,8 @@ import * as tutorial from "./tutorial";
 import * as container from "./container";
 import * as greenscreen from "./greenscreen";
 import * as core from "./core";
+import * as mobx from 'mobx'
+import * as sr from "./softrobot"
 
 type ISettingsProps = pxt.editor.ISettingsProps;
 
@@ -138,8 +140,6 @@ export class SettingsMenu extends data.Component<SettingsMenuProps, SettingsMenu
 
     constructor(props: SettingsMenuProps) {
         super(props);
-        this.state = {
-        }
 
         this.openSettings = this.openSettings.bind(this);
         this.showPackageDialog = this.showPackageDialog.bind(this);
@@ -155,6 +155,7 @@ export class SettingsMenu extends data.Component<SettingsMenuProps, SettingsMenu
         this.showShareDialog = this.showShareDialog.bind(this);
         this.pair = this.pair.bind(this);
         this.pairBluetooth = this.pairBluetooth.bind(this);
+        this.softrobotControlMode = this.softrobotControlMode.bind(this);
         this.showAboutDialog = this.showAboutDialog.bind(this);
         this.print = this.print.bind(this);
     }
@@ -232,6 +233,12 @@ export class SettingsMenu extends data.Component<SettingsMenuProps, SettingsMenu
             .then(() => core.hideLoading("webblepair"));
     }
 
+    // show settings for softrobot
+    softrobotControlMode() {
+        pxt.tickEvent("menu.settings.softrobot");
+        this.props.parent.controlModeSoftRobot();
+    }
+
     showAboutDialog() {
         pxt.tickEvent("menu.about");
         this.props.parent.showAboutDialog();
@@ -249,12 +256,12 @@ export class SettingsMenu extends data.Component<SettingsMenuProps, SettingsMenu
         if (nextProps.greenScreen !== undefined) {
             newState.greenScreen = nextProps.greenScreen;
         }
-        if (Object.keys(newState).length > 0) this.setState(newState)
+        if (Object.keys(newState).length > 1) this.setState(newState)
     }
 
     shouldComponentUpdate(nextProps: SettingsMenuProps, nextState: SettingsMenuState, nextContext: any): boolean {
         return this.state.highContrast != nextState.highContrast
-            || this.state.greenScreen != nextState.greenScreen;
+            || this.state.greenScreen != nextState.greenScreen
     }
 
     renderCore() {
@@ -270,6 +277,9 @@ export class SettingsMenu extends data.Component<SettingsMenuProps, SettingsMenu
         const showSimCollapse = !readOnly && !isController && !!targetTheme.simCollapseInMenu;
         const showGreenScreen = (targetTheme.greenScreen || /greenscreen=1/i.test(window.location.href))
             && greenscreen.isSupported();
+
+        // reference my compile options
+        const softRobot = pxt.appTarget.softRobot;
 
         return <sui.DropdownMenu role="menuitem" icon={'setting large'} title={lf("More...")} className="item icon more-dropdown-menuitem">
             <sui.Item role="menuitem" icon="options" text={lf("Project Settings")} onClick={this.openSettings} tabIndex={-1} />
@@ -288,8 +298,15 @@ export class SettingsMenu extends data.Component<SettingsMenuProps, SettingsMenu
                 // we always need a way to clear local storage, regardless if signed in or not
             }
             {!isController ? <sui.Item role="menuitem" icon='sign out' text={lf("Reset")} onClick={this.showResetDialog} tabIndex={-1} /> : undefined}
-            {pxt.usb.isEnabled ? <sui.Item role="menuitem" icon='usb' text={lf("Pair device")} onClick={this.pair} tabIndex={-1} /> : undefined}
+            {pxt.usb.isEnabled ? <sui.Item role="menuitem" icon='wifi' text={lf("Pair device")} onClick={this.pair} tabIndex={-1} /> : undefined}
             {pxt.webBluetooth.isAvailable() ? <sui.Item role="menuitem" icon='bluetooth' text={lf("Pair Bluetooth")} onClick={this.pairBluetooth} tabIndex={-1} /> : undefined}
+            {
+                // button for pair soft robot in settings on the main menu
+            }
+            <div className="ui divider portrait only"></div>
+            <sui.Item className="portrait only" role="menuitem" icon='compress' text={lf("Calibration")} onClick={this.props.parent.calibrationSoftRobot} tabIndex={-1} />
+            <sui.Item className="portrait only" role="menuitem" icon='list' text={lf("Inspector")} onClick={this.props.parent.inspectorSoftRobot} tabIndex={-1} />
+            <sui.Item className="portrait only" role="menuitem" icon='wrench' text={lf("Settings")} onClick={this.props.parent.hwSettingsSoftRobot} tabIndex={-1} />
             <div className="ui mobile only divider"></div>
             {renderDocItems(this.props.parent, "mobile only")}
             <div className="ui divider"></div>
@@ -364,6 +381,11 @@ export class MainMenu extends data.Component<ISettingsProps, {}> {
         this.props.parent.exitTutorial();
     }
 
+    calibrationSoftRobot() {
+        pxt.tickEvent("menu.calibration.softrobot");
+        this.props.parent.calibrationSoftRobot();
+    }
+
     renderCore() {
         const { home, header, highContrast, greenScreen } = this.props.parent.state;
         if (home) return <div />; // Don't render if we're on the home screen
@@ -420,14 +442,35 @@ export class MainMenu extends data.Component<ISettingsProps, {}> {
                 </div>
             </div> : undefined}
             {inTutorial ? <tutorial.TutorialMenuItem parent={this.props.parent} /> : undefined}
+
             <div className="right menu">
+                <sui.Item className="icon" role="menuitem" textClass="landscape only" 
+                    icon="align left" title={lf("Calibrate motors")} text={lf("Calib")} 
+                    onClick={this.props.parent.calibrationSoftRobot} />
+                <sui.Item className="icon" role="menuitem" textClass="landscape only" 
+                    icon="eye" title={lf("Show Nuibot information")} text={lf("Status")}
+                    onClick={() => core.confirmAsync({
+                        header: lf("Robot State Inspector"),
+                        hasCloseIcon: true,
+                        hideCancel: true,
+                        hideAgree: true,
+                        jsx: React.createElement(sr.dialog.robotStateInspector.RobotStateInspector, {})
+                    })} />
+                <sui.Item className="icon" role="menuitem" textClass="landscape only" 
+                    icon="wrench" title={lf("Change settings")} text={lf("Setting")} onClick={() => core.confirmAsync({
+                        header: lf("Settings"),
+                        hasCloseIcon: true,
+                        hideCancel: true,
+                        hideAgree: true,
+                        jsx: React.createElement(sr.dialog.robotSettings.RobotSettingsDialog, {nvsSettings: softrobot.device.robotInfo.nvsSettings})
+                    })}  />
                 {docMenu ? <container.DocsMenu parent={this.props.parent} /> : undefined}
                 {sandbox || inTutorial ? undefined : <container.SettingsMenu parent={this.props.parent} highContrast={highContrast} greenScreen={greenScreen} />}
 
                 {sandbox && !targetTheme.hideEmbedEdit ? <sui.Item role="menuitem" icon="external" textClass="mobile hide" text={lf("Edit")} onClick={this.launchFullEditor} /> : undefined}
                 {inTutorial ? <sui.ButtonMenuItem className="exit-tutorial-btn" role="menuitem" icon="external" text={lf("Exit tutorial")} textClass="landscape only" onClick={this.exitTutorial} /> : undefined}
 
-                {!sandbox ? <a href={targetTheme.organizationUrl} aria-label={lf("{0} Logo", targetTheme.organization)} role="menuitem" target="blank" rel="noopener" className="ui item logo organization" onClick={this.orgIconClick}>
+                {true ? undefined : !sandbox ? <a href={targetTheme.organizationUrl} aria-label={lf("{0} Logo", targetTheme.organization)} role="menuitem" target="blank" rel="noopener" className="ui item logo organization" onClick={this.orgIconClick}>
                     {targetTheme.organizationWideLogo || targetTheme.organizationLogo
                         ? <img className={`ui logo ${targetTheme.organizationWideLogo ? " portrait hide" : ''}`} src={targetTheme.organizationWideLogo || targetTheme.organizationLogo} alt={lf("{0} Logo", targetTheme.organization)} />
                         : <span className="name">{targetTheme.organization}</span>}
@@ -584,7 +627,7 @@ export class SandboxFooter extends data.PureComponent<SandboxFooterProps, {}> {
             {targetTheme.organizationUrl && targetTheme.organization ? <a className="item" target="_blank" rel="noopener noreferrer" href={targetTheme.organizationUrl}>{targetTheme.organization}</a> : undefined}
             <a target="_blank" className="item" href={targetTheme.termsOfUseUrl} rel="noopener noreferrer">{lf("Terms of Use")}</a>
             <a target="_blank" className="item" href={targetTheme.privacyUrl} rel="noopener noreferrer">{lf("Privacy")}</a>
-            <span className="item"><a role="button" className="ui thin portrait only" title={compileTooltip} onClick={this.compile}><sui.Icon icon={`icon ${pxt.appTarget.appTheme.downloadIcon || 'download'}`} />{pxt.appTarget.appTheme.useUploadMessage ? lf("Upload") : lf("Download")}</a></span>
+            <a role="button" className="ui small" title={compileTooltip} onClick={this.compile}><sui.Icon icon={`icon ${pxt.appTarget.appTheme.downloadIcon || 'download'}`} />{pxt.appTarget.appTheme.useUploadMessage ? lf("Upload") : lf("Download")}</a>
         </div>;
         /* tslint:enable:react-a11y-anchors */
     }

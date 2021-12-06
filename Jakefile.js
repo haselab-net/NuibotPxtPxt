@@ -135,13 +135,15 @@ file('built/pxt-common.json', expand(['libs/pxt-common'], ".ts"), function () {
 compileDir("pxtlib", "built/typescriptServices.d.ts")
 compileDir("pxtcompiler", ["built/pxtlib.js"])
 compileDir("pxtwinrt", ["built/pxtlib.js"])
-compileDir("pxtblocks", ["built/pxtlib.js", "built/pxtsim.js", "built/pxtcompiler.js"])
+compileDir("pxtblocks", ["built/pxtlib.js", "built/pxtsim.js", "built/pxtcompiler.js", "built/softrobot.js"])
 ju.catFiles("built/pxtblockly.js", expand(["webapp/public/blockly/blockly_compressed.js", "webapp/public/blockly/blocks_compressed.js", "webapp/public/blockly/msg/js/en.js", "built/pxtblocks.js"]), "")
 compileDir("pxtrunner", ["built/pxtlib.js", "built/pxteditor.js", "built/pxtcompiler.js", "built/pxtsim.js", "built/pxtblockly.js"])
-compileDir("pxtsim", ["built/pxtlib.js"])
+compileDir("pxtsim", ["built/pxtlib.js", "built/softrobot.js"])
 compileDir("pxteditor", ["built/pxtlib.js", "built/pxtblockly.js"])
 compileDir("cli", ["built/pxtlib.js", "built/pxtsim.js", "built/pxtcompiler.js"])
 compileDir("backendutils", ['pxtlib/commonutil.ts', 'pxtlib/docsrender.ts'])
+// compile softrobot library
+compileDir("softrobot", ['built/pxtlib.js'])
 file("built/web/pxtweb.js", expand(["docfiles/pxtweb"]), { async: true }, function () { tscIn(this, "docfiles/pxtweb", "built") })
 
 task("karma", ["blocklycompilertest"], function () {
@@ -181,6 +183,7 @@ task("lint", [], { async: true }, function () {
         "cli",
         "pxtblocks",
         "pxteditor",
+        "softrobot",
         "pxtlib",
         "pxtcompiler",
         "pxtrunner",
@@ -281,6 +284,7 @@ task('wapp', [
     "built/web/pxtsim.js",
     "built/web/pxtblockly.js",
     "built/web/pxteditor.js",
+    "built/web/softrobot.js",
     "built/web/pxtwinrt.js",
     'built/web/main.js',
     'built/web/pxtapp.js',
@@ -302,6 +306,7 @@ file("built/web/pxtlib.js", [
     "built/pxtsim.js",
     "built/pxtrunner.js",
     "built/pxteditor.js",
+    "built/softrobot.js",
     "built/pxtwinrt.js"
 ], function () {
     jake.mkdirP("built/web")
@@ -316,6 +321,8 @@ file("built/web/pxtlib.js", [
     jake.cpR("built/pxtsim.js", "built/web/")
     jake.cpR("built/pxtrunner.js", "built/web/")
     jake.cpR("built/pxteditor.js", "built/web/")
+    jake.cpR("built/softrobot.js", "built/web/")
+    console.log("copy")
     jake.cpR("built/pxtwinrt.js", "built/web/")
     jake.cpR("external/tdast.js", "built/web/")
 
@@ -428,6 +435,7 @@ file('built/webapp/src/app.js', expand([
     "built/web/pxtsim.js",
     "built/web/pxtblockly.js",
     "built/web/pxteditor.js",
+    "built/web/softrobot.js",
     "built/web/pxtwinrt.js"
 ]), { async: true }, function () {
     tscIn(this, "webapp", "built/webapp")
@@ -447,6 +455,7 @@ ju.catFiles('built/web/pxtapp.js', [
     "built/web/pxtlib.js",
     "built/web/pxtwinrt.js",
     "built/web/pxteditor.js",
+    "built/web/softrobot.js",
     "built/web/pxtsim.js"
 ])
 
@@ -469,6 +478,7 @@ ju.catFiles('built/web/pxtembed.js', [
     "built/web/pxtcompiler.js",
     "built/web/pxtblockly.js",
     "built/web/pxteditor.js",
+    "built/web/softrobot.js",
     "built/web/pxtsim.js",
     "built/web/pxtrunner.js"
 ]);

@@ -205,6 +205,136 @@ namespace ts.pxtc {
         return res
     }
 
+    /**
+     * compile to js for softrobot hardware
+     * @param opts compile options
+     * @author gzl
+     */
+    export function compileSoftrobot(opts: CompileOptions) {
+        let startTime = Date.now()
+        let res: CompileResult = {
+            outfiles: {},
+            diagnostics: [],
+            success: false,
+            times: {},
+        }
+
+        let fileText: { [index: string]: string } = {};
+        for (let fileName in opts.fileSystem) {
+            fileText[normalizePath(fileName)] = opts.fileSystem[fileName];
+        }
+
+        let setParentNodes = true
+        let options = getTsCompilerOptions(opts)
+
+        let host: CompilerHost = {
+            getSourceFile: (fn, v, err) => {
+                fn = normalizePath(fn)
+                let text = ""
+                if (fileText.hasOwnProperty(fn)) {
+                    text = fileText[fn]
+                } else {
+                    if (err) err("File not found: " + fn)
+                }
+                if (text == null) {
+                    err("File not found: " + fn)
+                    text = ""
+                }
+                return createSourceFile(fn, text, v, setParentNodes)
+            },
+            fileExists: fn => {
+                fn = normalizePath(fn)
+                return fileText.hasOwnProperty(fn)
+            },
+            getCanonicalFileName: fn => fn,
+            getDefaultLibFileName: () => "no-default-lib.d.ts",
+            writeFile: (fileName, data, writeByteOrderMark, onError) => {
+                res.outfiles[fileName] = data
+            },
+            getCurrentDirectory: () => ".",
+            useCaseSensitiveFileNames: () => true,
+            getNewLine: () => "\n",
+            readFile: fn => {
+                fn = normalizePath(fn)
+                return fileText[fn] || "";
+            },
+            directoryExists: dn => true,
+            getDirectories: () => []
+        }
+
+        if (!opts.sourceFiles)
+            opts.sourceFiles = Object.keys(opts.fileSystem)
+
+        let tsFiles = opts.sourceFiles.filter(f => U.endsWith(f, ".ts"))
+        // ensure that main.ts is last of TS files
+        let tsFilesNoMain = tsFiles.filter(f => f != "main.ts")
+        let hasMain = false;
+        if (tsFiles.length > tsFilesNoMain.length) {
+            tsFiles = tsFilesNoMain
+            tsFiles.push("main.ts")
+            hasMain = true;
+        }
+        // TODO: ensure that main.ts is last???
+        let program = createProgram(tsFiles, options, host);
+
+        let entryPoint: string;
+        if (hasMain) {
+            entryPoint = "main.ts"
+        }
+        else {
+            const lastFile = tsFiles[tsFiles.length - 1];
+            entryPoint = lastFile.substring(lastFile.lastIndexOf("/") + 1);
+        }
+
+        // First get and report any syntactic errors.
+        res.diagnostics = patchUpDiagnostics(program.getSyntacticDiagnostics(), opts.ignoreFileResolutionErrors);
+        if (res.diagnostics.length > 0) {
+            if (opts.forceEmit) {
+                pxt.debug('syntactic errors, forcing emit')
+                compileBinary(program, host, opts, res, entryPoint);
+            }
+            return res;
+        }
+
+        // If we didn't have any syntactic errors, then also try getting the global and
+        // semantic errors.
+        res.diagnostics = patchUpDiagnostics(program.getOptionsDiagnostics().concat(Util.toArray(program.getGlobalDiagnostics())), opts.ignoreFileResolutionErrors);
+
+        if (res.diagnostics.length == 0) {
+            res.diagnostics = patchUpDiagnostics(program.getSemanticDiagnostics(), opts.ignoreFileResolutionErrors);
+        }
+
+        let emitStart = U.now()
+        res.times["typescript"] = emitStart - startTime
+
+        if (opts.ast) {
+            res.ast = program
+        }
+
+        if (opts.ast || opts.forceEmit || res.diagnostics.length == 0) {
+            /**
+             * use src in program.emit() to compile only main.ts
+             * @author gzl
+             */
+            // let src = program.getSourceFiles().filter(f => Util.endsWith(f.fileName, entryPoint))[0];
+            const binOutput = program.emit();
+            res.times["compilebinary"] = U.now() - emitStart
+            res.diagnostics = res.diagnostics.concat(patchUpDiagnostics(binOutput.diagnostics))
+        }
+
+        if (res.diagnostics.length == 0)
+            res.success = true
+
+        for (let f of opts.sourceFiles) {
+            if (Util.startsWith(f, "built/"))
+                res.outfiles[f.slice(6)] = opts.fileSystem[f]
+        }
+
+        res.times["all"] = U.now() - startTime;
+        pxt.tickEvent(`compile`, res.times);
+        return res
+    }
+
     export function decompile(opts: CompileOptions, fileName: string, includeGreyBlockMessages = false, bannedCategories?: string[]) {
         const resp = compile(opts);
         if (!resp.success) return resp;

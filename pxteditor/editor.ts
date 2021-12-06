@@ -64,6 +64,7 @@ namespace pxt.editor {
 
         home?: boolean;
         hasError?: boolean;
+        rookieMode?: boolean;
     }
 
     export interface EditorState {
@@ -164,6 +165,7 @@ namespace pxt.editor {
         updateHeaderName(name: string): void;
         updateHeaderNameAsync(name: string): Promise<void>;
         compile(): void;
+        compileSoftRobot(): void;
 
         setFile(fn: IFile): void;
         setSideFile(fn: IFile): void;
@@ -198,6 +200,8 @@ namespace pxt.editor {
         closeFlyout(): void;
         printCode(): void;
 
+        bindNuibotCallback(): void;
+
         toggleDebugging(): void;
         dbgPauseResume(): void;
         dbgStepInto(): void;
@@ -221,6 +225,10 @@ namespace pxt.editor {
         toggleHighContrast(): void;
         toggleGreenScreen(): void;
         pair(): void;
+        controlModeSoftRobot(): void;
+        calibrationSoftRobot(): void;
+        inspectorSoftRobot(): void;
+        hwSettingsSoftRobot(): void;
         launchFullEditor(): void;
 
         settings: EditorSettings;
@@ -253,6 +261,7 @@ namespace pxt.editor {
         showBoardDialogAsync(features?: string[], closeIcon?: boolean): Promise<void>;
 
         showModalDialogAsync(options: ModalDialogOptions): Promise<void>;
+        showRookieModePage(): void;
     }
 
     export interface IHexFileImporter {

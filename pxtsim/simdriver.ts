@@ -1,3 +1,5 @@
+/// <reference path="../built/softrobot.d.ts" />
+
 namespace pxsim {
     export interface SimulatorDriverOptions {
         revealElement?: (el: HTMLElement) => void;
@@ -310,7 +312,11 @@ namespace pxsim {
             msg.frameCounter = ++this.frameCounter;
             msg.options = {
                 theme: this.themes[this.nextFrameId++ % this.themes.length],
-                player: mc
+                player: mc,
+                robotInfo: softrobot.util.instance2PlainWithoutFuncDeep(softrobot.device.robotInfo),
+                robotState: softrobot.util.instance2PlainWithoutFuncDeep(softrobot.device.robotState),
+                synchronizationMode: softrobot.settings.value.control_mode === softrobot.settings.ControlMode.Synchronization_Mode,
+                mqttHttpServer: pxt.appTarget.softRobot.mqttHttpServer
             };
             msg.id = `${msg.options.theme}-${this.nextId()}`;
             frame.dataset['runid'] = this.runId;
@@ -343,6 +349,7 @@ namespace pxsim {
                     break; //handled elsewhere
                 case 'debugger': this.handleDebuggerMessage(msg as DebuggerMessage); break;
                 case 'toplevelcodefinished': if (this.options.onTopLevelCodeEnd) this.options.onTopLevelCodeEnd(); break;
+                case 'softrobot': softrobot.sim.simMessageHandler(msg as softrobot.sim.SrSimulatorMessage);
                 default:
                     this.postMessage(msg, source);
                     break;

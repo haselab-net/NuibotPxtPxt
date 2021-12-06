@@ -182,6 +182,27 @@ export class Projects extends data.Component<ISettingsProps, ProjectsState> {
         return <div ref="homeContainer" className={tabClasses}>
             {showHeroBanner ?
                 <div className="ui segment getting-started-segment" style={{ backgroundImage: `url(${encodeURI(targetTheme.homeScreenHero)})` }} /> : undefined}
+            <div key="rookie_mode" className="ui segment gallerysegment mystuff-segment">
+                <div className="ui grid equal width padded heading">
+                    <div className="column" style={{ zIndex: 1 }}>
+                        <h2 className="ui header">{lf("Beginner mode")}</h2>
+                    </div>
+                </div>
+                <div className="content">
+                    <div className="ui carouselouter">
+                        <div className="carouselcontainer">
+                            <div className="carouselitem">
+                                <div role="button" className="ui card link buttoncard newprojectcard" title={lf("Enter rookie mode")} onClick={this.props.parent.showRookieModePage}>
+                                    <div className="content">
+                                        <sui.Icon icon="huge smile outline" />
+                                        <span className="header">{lf("Beginner mode")}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
             <div key={`mystuff_gallerysegment`} className="ui segment gallerysegment mystuff-segment">
                 <div className="ui grid equal width padded heading">
                     <div className="column" style={{ zIndex: 1 }}>
@@ -258,7 +279,7 @@ export class ProjectsMenu extends data.Component<ISettingsProps, {}> {
                     {targetTheme.portraitLogo ? (<img className={`ui ${targetTheme.logoWide ? "small" : "mini"} image portrait only`} src={targetTheme.portraitLogo} alt={lf("{0} Logo", targetTheme.boardName)} />) : null}
                 </a>
             </div>
-            <div className="ui item home mobile hide"><sui.Icon icon={`icon home large`} /> <span>{lf("Home")}</span></div>
+            <sui.Item className="ui item home mobile hide" onClick={() => pxt.BrowserUtils.changeHash("", true)}><sui.Icon icon={`icon home large`} /> <span>{lf("Home")}</span></sui.Item>
             <div className="right menu">
                 <a href={targetTheme.organizationUrl} target="blank" rel="noopener" className="ui item logo organization" onClick={this.orgIconClick}>
                     {targetTheme.organizationWideLogo || targetTheme.organizationLogo
@@ -744,8 +765,8 @@ export class ExitAndSaveDialog extends data.Component<ISettingsProps, ExitAndSav
         this.hide = this.hide.bind(this);
         this.modalDidOpen = this.modalDidOpen.bind(this);
         this.handleChange = this.handleChange.bind(this);
+        this.cancel = this.cancel.bind(this);
         this.save = this.save.bind(this);
-        this.skip = this.skip.bind(this);
     }
 
     componentWillReceiveProps(newProps: ISettingsProps) {
@@ -765,7 +786,7 @@ export class ExitAndSaveDialog extends data.Component<ISettingsProps, ExitAndSav
         // Save on enter typed
         let dialogInput = document.getElementById('projectNameInput') as HTMLInputElement;
         if (dialogInput) {
-            if (!pxt.BrowserUtils.isMobile()) dialogInput.setSelectionRange(0, 9999);
+            dialogInput.setSelectionRange(0, 9999);
             dialogInput.onkeydown = (e: KeyboardEvent) => {
                 const charCode = core.keyCodeFromEvent(e);
                 if (charCode === core.ENTER_KEY) {
@@ -794,10 +815,9 @@ export class ExitAndSaveDialog extends data.Component<ISettingsProps, ExitAndSav
         }
     }
 
-    skip() {
-        pxt.tickEvent("exitandsave.skip", undefined, { interactiveConsent: true });
+    cancel() {
+        pxt.tickEvent("exitandsave.cancel", undefined, { interactiveConsent: true });
         this.hide();
-        this.props.parent.openHome();
     }
 
     save() {
@@ -818,13 +838,10 @@ export class ExitAndSaveDialog extends data.Component<ISettingsProps, ExitAndSav
         const { visible, emoji, projectName } = this.state;
 
         const actions: sui.ModalButton[] = [{
-            label: lf("Save"),
+            label: lf("Done"),
             onclick: this.save,
             icon: 'check',
             className: 'approve positive'
-        }, {
-            label: lf("Skip"),
-            onclick: this.skip
         }]
 
         return (
@@ -834,13 +851,10 @@ export class ExitAndSaveDialog extends data.Component<ISettingsProps, ExitAndSav
                 closeOnDimmerClick closeOnDocumentClick closeOnEscape
                 modalDidOpen={this.modalDidOpen}
             >
-                <div>
-                    <p>{lf("Give your project a name.")}</p>
-                    <div className="ui form">
-                        <sui.Input ref="filenameinput" autoFocus={!pxt.BrowserUtils.isMobile()} id={"projectNameInput"}
-                            ariaLabel={lf("Type a name for your project")} autoComplete={false}
-                            value={projectName || ''} onChange={this.handleChange} />
-                    </div>
+                <div className="ui form">
+                    <sui.Input ref="filenameinput" autoFocus id={"projectNameInput"} label={lf("Name")}
+                        ariaLabel={lf("Type a name for your project")} autoComplete={false}
+                        value={projectName || ''} onChange={this.handleChange} />
                 </div>
             </sui.Modal>
         )

@@ -87,7 +87,7 @@ let asyncLoadingTimeout: pxt.Map<number> = {};
 
 export function showLoadingAsync(id: string, msg: string, operation: Promise<any>, delay: number = 700) {
     clearTimeout(asyncLoadingTimeout[id]);
-    asyncLoadingTimeout[id] = setTimeout(function () {
+    asyncLoadingTimeout[id] = window.setTimeout(function () {
         showLoading(id, msg);
     }, delay);
 
@@ -233,6 +233,60 @@ export function confirmDelete(what: string, cb: () => Promise<void>, multiDelete
 export function promptAsync(options: PromptOptions): Promise<string> {
     options.type = 'prompt';
     if (!options.buttons) options.buttons = []
+
+    let result = options.initialValue || "";
+    let cancelled: boolean = false;
+
+    options.onInputChanged = (v: string) => { result = v };
+
+    if (!options.hideAgree) {
+        options.buttons.push({
+            label: options.agreeLbl || lf("Go ahead!"),
+            className: options.agreeClass,
+            icon: options.agreeIcon || "checkmark",
+            approveButton: true
+        })
+    }
+
+    if (!options.hideCancel) {
+        // Replace the default cancel button with our own
+        options.buttons.push({
+            label: options.disagreeLbl || lf("Cancel"),
+            className: (options.disagreeClass || "cancel"),
+            icon: options.disagreeIcon || "cancel",
+            onclick: () => {
+                cancelled = true;
+            }
+        });
+        options.hideCancel = true;
+    }
+
+    return dialogAsync(options)
+        .then(() => cancelled ? null : result);
+}
+
+/**
+ * interface for choose device dialog
+ * @author gzl
+ */
+export interface ChooseOptions extends PromptOptions {
+    items: IListItem[];
+}
+export interface IListItem {
+    title?: string;
+    text?: string;
+    ariaLabel?: string;
+    onclick?: () => void;
+}
+
+/**
+ * choose dialog for selecting available devices
+ * @param options options for choose dialog
+ * @author gzl
+ */
+export function chooseAsync(options: ChooseOptions): Promise<string> {
+    options.type = 'choose';
+    if (!options.buttons) options.buttons = [];
 
     let result = options.initialValue || "";
     let cancelled: boolean = false;

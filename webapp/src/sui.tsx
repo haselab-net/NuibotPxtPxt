@@ -704,7 +704,7 @@ export class MenuItem extends data.Component<MenuItemProps, {}> {
         }
 
         return (
-            <div id={id} tabIndex={active ? 0 : -1} className={classes} onClick={this.handleClick} role="tab" aria-controls={ariaControls} aria-selected={active} aria-label={content || name}>
+            <div id={id} tabIndex={active ? 0 : -1} className={classes} onClick={this.handleClick} role="tab" aria-controls={ariaControls} aria-selected={active} aria-label={content.toString() || name}>
                 {icon ? <Icon icon={icon} /> : undefined}
                 {content || name}
             </div>

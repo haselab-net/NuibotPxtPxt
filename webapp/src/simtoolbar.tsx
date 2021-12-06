@@ -3,17 +3,25 @@
 import * as React from "react";
 import * as data from "./data";
 import * as sui from "./sui";
+import * as sr from "./softrobot"
+import * as core from "./core"
+import * as mobx from "mobx"
 
 type ISettingsProps = pxt.editor.ISettingsProps;
 
 export interface SimulatorProps extends ISettingsProps {
 }
 
-export class SimulatorToolbar extends data.Component<SimulatorProps, {}> {
+export interface SimulatorState {
+    paired: boolean;
+}
+
+export class SimulatorToolbar extends data.Component<SimulatorProps, SimulatorState> {
 
     constructor(props: SimulatorProps) {
         super(props);
         this.state = {
+            paired: false
         }
 
         this.toggleTrace = this.toggleTrace.bind(this);
@@ -23,6 +31,15 @@ export class SimulatorToolbar extends data.Component<SimulatorProps, {}> {
         this.startStopSimulator = this.startStopSimulator.bind(this);
         this.toggleSimulatorFullscreen = this.toggleSimulatorFullscreen.bind(this);
         this.toggleSimulatorCollapse = this.toggleSimulatorCollapse.bind(this);
+        this.calibrationSoftRobot = this.calibrationSoftRobot.bind(this);
+    }
+
+    private pairDisposer: mobx.IReactionDisposer
+    componentDidMount() {
+        this.pairDisposer = mobx.autorun(() => this.setState({paired: softrobot.socket.paired.get() == softrobot.socket.PairStatus.Paired}))
+    }
+    componentWillUnmount() {
+        this.pairDisposer()
     }
 
     openInstructions() {
@@ -65,6 +82,12 @@ export class SimulatorToolbar extends data.Component<SimulatorProps, {}> {
         this.props.parent.toggleSimulatorCollapse();
     }
 
+    // show calibration dialog for softrobot
+    calibrationSoftRobot() {
+        pxt.tickEvent("menu.calibration.softrobot");
+        this.props.parent.calibrationSoftRobot();
+    }
+
     renderCore() {
         const parentState = this.props.parent.state;
         if (!parentState.currFile) return <div />
@@ -99,16 +122,16 @@ export class SimulatorToolbar extends data.Component<SimulatorProps, {}> {
         const collapseTooltip = lf("Hide the simulator");
 
         return <aside className="ui item grid centered portrait hide simtoolbar" role="complementary" aria-label={lf("Simulator toolbar")}>
-            <div className={`ui icon tiny buttons ${isFullscreen ? 'massive' : ''}`} style={{ padding: "0" }}>
+            <div className={`ui icon large buttons ${isFullscreen ? 'massive' : ''}`} style={{ padding: "0" }}>
                 {make ? <sui.Button disabled={debugging} icon='configure' className="secondary" title={makeTooltip} onClick={this.openInstructions} /> : undefined}
                 {run ? <sui.Button disabled={debugging} key='runbtn' className={`play-button ${isRunning ? "stop" : "play"}`} icon={isRunning ? "stop" : "play green"} title={runTooltip} onClick={this.startStopSimulator} /> : undefined}
                 {restart ? <sui.Button disabled={debugging} key='restartbtn' className={`restart-button`} icon="refresh" title={restartTooltip} onClick={this.restartSimulator} /> : undefined}
                 {trace ? <sui.Button key='trace' className={`trace-button ${tracing ? 'orange' : ''}`} icon="xicon turtle" title={traceTooltip} onClick={this.toggleTrace} /> : undefined}
             </div>
-            <div className={`ui icon tiny buttons ${isFullscreen ? 'massive' : ''}`} style={{ padding: "0" }}>
+            <div className={`ui icon large buttons ${isFullscreen ? 'massive' : ''}`} style={{ padding: "0" }}>
                 {audio ? <sui.Button key='mutebtn' className={`mute-button ${isMuted ? 'red' : ''}`} icon={`${isMuted ? 'volume off' : 'volume up'}`} title={muteTooltip} onClick={this.toggleMute} /> : undefined}
             </div>
-            <div className={`ui icon tiny buttons ${isFullscreen ? 'massive' : ''}`} style={{ padding: "0" }}>
+            <div className={`ui icon large buttons ${isFullscreen ? 'massive' : ''}`} style={{ padding: "0" }}>
                 {collapse && !isFullscreen ? <sui.Button key='collapsebtn' className={`collapse-button`} icon={`icon toggle left`} title={collapseTooltip} onClick={this.toggleSimulatorCollapse} /> : undefined}
                 {fullscreen ? <sui.Button key='fullscreenbtn' className={`fullscreen-button`} icon={`xicon ${isFullscreen ? 'fullscreencollapse' : 'fullscreen'}`} title={fullscreenTooltip} onClick={this.toggleSimulatorFullscreen} /> : undefined}
             </div>

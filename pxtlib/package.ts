@@ -686,8 +686,8 @@ namespace pxt {
                 }
             }
 
-            return this.loadAsync()
-                .then(() => {
+            return this.loadAsync()         // gzl: 初始化
+                .then(() => {               // gzl: 处理extension相关的opt，生成simulator相关的声明文件
                     pxt.debug(`building: ${this.sortedDeps().map(p => p.config.name).join(", ")}`)
                     let ext = cpp.getExtensionInfo(this)
                     if (ext.shimsDTS) generateFile("shims.d.ts", ext.shimsDTS)
@@ -706,7 +706,7 @@ namespace pxt {
                 })
                 .then(() => this.config.binaryonly || appTarget.compile.shortPointers || !opts.target.isNative ? null : this.filesToBePublishedAsync(true))
                 .then(files => {
-                    if (files) {
+                    if (files) {            // gzl: 编译为cpp的情况
                         const headerString = JSON.stringify({
                             name: this.config.name,
                             comment: this.config.description,
@@ -732,14 +732,14 @@ namespace pxt {
                                     opts.embedBlob = ts.pxtc.encodeBase64(U.uint8ArrayToString(buf))
                                 }
                             });
-                    } else {
+                    } else {        // gzl: 编译simulator文件的情况
                         return Promise.resolve()
                     }
                 })
-                .then(() => {
-                    for (const pkg of this.sortedDeps()) {
-                        for (const f of pkg.getFiles()) {
-                            if (/\.(ts|asm)$/.test(f)) {
+                .then(() => {   //gzl: 添加所有依赖文件
+                    for (const pkg of this.sortedDeps()) {      //gzl: 递归获得所有依赖包
+                        for (const f of pkg.getFiles()) {       //gzl: 获得包中的所有文件
+                            if (/\.(ts|asm)$/.test(f)) {        //gzl: 排除ts/asm文件外的文件
                                 let sn = f
                                 if (pkg.level > 0)
                                     sn = "pxt_modules/" + pkg.id + "/" + f

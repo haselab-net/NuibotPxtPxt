@@ -90,7 +90,6 @@ namespace ts.pxtc {
         memberName: string;
         blockId: string;
         isBitMask: boolean;
-        isHash: boolean;
         firstValue?: number;
         initialMembers: string[];
         promptHint: string;
@@ -152,6 +151,8 @@ namespace ts.pxtc {
         jresURL?: string;
         iconURL?: string;
         imageLiteral?: number;
+        movementEditor?: number;    // append movement editor field
+        httpParamEditor?: boolean;  // append HTTP param editor field
         weight?: number;
         parts?: string;
         trackArgs?: number[];
@@ -188,6 +189,7 @@ namespace ts.pxtc {
         inlineInputMode?: string; // can be inline, external, or auto
         expandableArgumentMode?: string; // can be disabled, enabled, or toggle
         draggableParameters?: boolean;
+        blockTestButton?: string;   // add a button to show popup for test the block, values = ["IFTTT", "Webhook", "MQTT"]
 
 
         /* start enum-only attributes (i.e. a block with shim=ENUM_GET) */
@@ -196,7 +198,6 @@ namespace ts.pxtc {
         enumMemberName?: string; // If the name of the enum was "Colors", this would be "color"
         enumStartValue?: number; // The lowest value to emit when going from blocks to TS
         enumIsBitMask?: boolean; // If true then values will be emitted in the form "1 << n"
-        enumIsHash?: boolean; // if true, the name of the enum is normalized, then hashed to generate the value
         enumPromptHint?: string; // The hint that will be displayed in the member creation prompt
         enumInitialMembers?: string[]; // The initial enum values which will be given the lowest values available
 
@@ -547,7 +548,6 @@ namespace ts.pxtc {
                     memberName: s.attributes.enumMemberName,
                     firstValue: isNaN(firstValue) ? undefined : firstValue,
                     isBitMask: s.attributes.enumIsBitMask,
-                    isHash: s.attributes.enumIsHash,
                     initialMembers: s.attributes.enumInitialMembers,
                     promptHint: s.attributes.enumPromptHint
                 };
@@ -700,7 +700,7 @@ namespace ts.pxtc {
         return r;
     }
 
-    const numberAttributes = ["weight", "imageLiteral", "topblockWeight"]
+    const numberAttributes = ["weight", "imageLiteral", "movementEditor", "topblockWeight"]
     const booleanAttributes = [
         "advanced",
         "handlerStatement",
@@ -710,7 +710,6 @@ namespace ts.pxtc {
         "constantShim",
         "blockCombine",
         "enumIsBitMask",
-        "enumIsHash",
         "decompileIndirectFixedInstances",
         "draggableParameters",
         "topblock"

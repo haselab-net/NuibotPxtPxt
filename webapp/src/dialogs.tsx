@@ -658,9 +658,9 @@ export function showImportGithubDialogAsync() {
         })).then(() => res)
 }
 
-export function showImportFileDialogAsync() {
+export function showImportFileDialogAsync(customExt = ".mkcd") {
     let input: HTMLInputElement;
-    let ext = ".mkcd";
+    let ext = customExt;
     if (pxt.appTarget.compile.hasHex) {
         ext = ".hex";
     }

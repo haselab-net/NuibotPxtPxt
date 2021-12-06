@@ -104,6 +104,43 @@ export function compileAsync(options: CompileOptions = {}): Promise<pxtc.Compile
         .catch(catchUserErrorAndSetDiags(noOpAsync))
 }
 
+/**
+ * compile function
+ * @description compile main.ts to js file, for running on hardware
+ * @author gzl
+ */
+export function compileSoftrobot(): Promise<pxtc.CompileResult> {
+    let options: CompileOptions = {};
+    let trg = pkg.mainPkg.getTargetOptions()
+    trg.isNative = options.native
+    trg.preferredEditor = options.preferredEditor;
+    console.log("target options: ", trg);
+
+    return pkg.mainPkg.getCompileOptionsAsync(trg)
+        .then( opts => {
+            console.log("compile option: ", opts);
+            if (options.debug) {
+                opts.breakpoints = true
+                opts.justMyCode = true
+            }
+            if (options.trace) {
+                opts.breakpoints = true
+                opts.justMyCode = true
+                opts.trace = true;
+            }
+            opts.computeUsedSymbols = true
+            if (options.forceEmit)
+                opts.forceEmit = true;
+            if (/test=1/i.test(window.location.href))
+                opts.testMode = true
+            return opts
+        })
+        .then(compileSoftrobotCoreAsync)
+        .then( resp => {
+            return resp;
+        })
+}
+
 function assembleCore(src: string): Promise<{ words: number[] }> {
     return workerOpAsync("assemble", { fileContent: src })
 }
@@ -122,6 +159,15 @@ export function assembleAsync(src: string) {
 
 function compileCoreAsync(opts: pxtc.CompileOptions): Promise<pxtc.CompileResult> {
     return workerOpAsync("compile", { options: opts })
+}
+
+/**
+ * 核心main.ts编译函数
+ * @description 利用worker将main.ts编译为js文件便于在硬件上运行
+ * @param opts 编译选项，主要使用fileSystem中的文件内容进行编译
+ */
+function compileSoftrobotCoreAsync(opts: pxtc.CompileOptions): Promise<pxtc.CompileResult> {
+    return workerOpAsync("compileSoftrobot", { options: opts })
 }
 
 export function decompileAsync(fileName: string, blockInfo?: ts.pxtc.BlocksInfo, oldWorkspace?: Blockly.Workspace, blockFile?: string): Promise<pxtc.CompileResult> {
