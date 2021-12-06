@@ -21,13 +21,6 @@
 @grey:#505050;
 @lightGrey: #d9d9d9;
 
-@grey400          : #bdbdbd;
-@purple200        : #ce93d8;
-@purple100        : #e1bee7;
-@cyan400 : #26c6da;
-@blue100: #bbdefb;
-@red400  : #ef5350;
-
 @greenTextColor: darken(@green, 5);
 
 @lightTextColor              : rgba(0, 0, 0, 0.68);

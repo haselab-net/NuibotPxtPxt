@@ -114,43 +114,20 @@ function codalBin() {
         "built/yt/build/" + cs.yottaTarget + "/source/" + cs.yottaBinary.replace(/\.hex$/, "").replace(/-combined$/, "");
 }
 
-let cachedMap = ""
-let addrCache: pxt.Map<number>
 function getMap() {
-    if (!cachedMap)
-        cachedMap = fs.readFileSync(codalBin() + ".map", "utf8")
-    return cachedMap
-}
-
-function mangle(symbolName: string) {
-    let m = /(.*)::(.*)/.exec(symbolName)
-    return "_ZN" + m[1].length + m[1] + "L" + m[2].length + m[2] + "E"
+    return fs.readFileSync(codalBin() + ".map", "utf8")
 }
 
 function findAddr(symbolName: string) {
-    if (!addrCache) {
-        addrCache = {}
-        let bss = ""
-        for (let line of getMap().split(/\n/)) {
-            line = line.trim()
-            let m = /^\.bss\.(\w+)/.exec(line)
-            if (m) bss = m[1]
-            m = /0x0000000([0-9a-f]+)(\s+([:\w]+)\s*(= .*)?)?/.exec(line)
-            if (m) {
-                let addr = parseInt(m[1], 16)
-                if (m[3]) addrCache[m[3]] = addr
-                if (bss) {
-                    addrCache[bss] = addr
-                    bss = ""
-                }
-            }
-        }
-    }
-    let addr = addrCache[symbolName]
-    if (!addr)
-        addr = addrCache[mangle(symbolName)]
+    let addr = ""
+    getMap().replace(/0x0000000([0-9a-f]+)\s+([:\w]+)\s*(= .*)?$/mg,
+        (f, addr0, nm) => {
+            if (nm == symbolName)
+                addr = addr0
+            return ""
+        })
     if (addr) {
-        return addr
+        return parseInt(addr, 16)
     } else {
         fatal(`Can't find ${symbolName} symbol in map`)
         return -1
@@ -201,16 +178,6 @@ interface ClassInfo {
     fields: string[];
 }
 
-const FREE_MASK = 0x80000000
-const ARRAY_MASK = 0x40000000
-const PERMA_MASK = 0x20000000
-const MARKED_MASK = 0x00000001
-const ANY_MARKED_MASK = 0x00000003
-
-function VAR_BLOCK_WORDS(vt: number) {
-    return (((vt) << 12) >> (12 + 2))
-}
-
 export async function dumpheapAsync() {
     let memStart = findAddr("_sdata")
     let memEnd = findAddr("_estack")
@@ -231,39 +198,8 @@ export async function dumpheapAsync() {
         vtablePtrs[hex(n + 20)] = cl
         return ""
     })
-
-    let pointerClassification: pxt.Map<string> = {}
-    let numFibers = 0
-    let numListeners = 0
-    for (let q of ["runQueue", "sleepQueue", "waitQueue", "fiberPool", "idleFiber"]) {
-        let addr = findAddr("codal::" + q)
-        for (let ptr = read32(addr); ptr; ptr = read32(ptr + 6 * 4)) {
-            pointerClassification[hex(ptr)] = "Fiber/" + q
-            pointerClassification[hex(read32(ptr))] = "Fiber/TCB/" + q
-            pointerClassification[hex(read32(ptr + 4))] = "Fiber/Stack/" + q
-            pointerClassification[hex(read32(ptr + 8 * 4))] = "Fiber/PXT/" + q
-            if (q == "idleFiber")
-                break
-            numFibers++
-        }
-    }
-
-    let messageBus = read32(findAddr("codal::EventModel::defaultEventBus"))
-    for (let ptr = read32(messageBus + 20); ptr; ptr = read32(ptr + 36)) {
-        numListeners++
-        pointerClassification[hex(ptr)] = "codal::Listener"
-    }
-    for (let ptr = read32(messageBus + 24); ptr; ptr = read32(ptr + 16)) {
-        pointerClassification[hex(ptr)] = "codal::EventQueueItem"
-    }
-
-    for (let ptr = read32(findAddr("pxt::handlerBindings")); ptr; ptr = read32(ptr)) {
-        pointerClassification[hex(ptr)] = "pxt::HandlerBinding"
-    }
-
     console.log(`heaps at ${hex(heapDesc)}, num=${heapNum}`)
     let cnts: pxt.Map<number> = {}
-    let fiberSize = 0
     for (let i = 0; i < heapNum; ++i) {
         let heapStart = read32(heapDesc + i * heapSz)
         let heapEnd = read32(heapDesc + i * heapSz + 4)
@@ -278,11 +214,8 @@ export async function dumpheapAsync() {
             let blockSize = bp & 0x7fffffff;
             let isFree = (bp & 0x80000000) != 0
 
-            // console.log(`${hex(block)} -> ${hex(bp)} ${blockSize * 4}`)
-            let classification = classifyCPP(block, blockSize)
-            if (U.startsWith(classification, "Fiber/"))
-                fiberSize += blockSize * 4
-            let mark = `[${isFree ? "F" : "U"}:${blockSize * 4} / ${classification}]`
+            let hx = hex(read32(block + 4))
+            let mark = `[${isFree ? "F" : "U"}:${blockSize * 4} / ${hx} / ${vtablePtrs[hx]}]`
             if (!cnts[mark])
                 cnts[mark] = 0
             cnts[mark] += blockSize * 4
@@ -343,7 +276,6 @@ export async function dumpheapAsync() {
 
     let byCategory: pxt.Map<number> = {}
     let numByCategory: pxt.Map<number> = {}
-    let maxFree = 0
 
     /*
     struct VTable {
@@ -367,24 +299,14 @@ export async function dumpheapAsync() {
             let category = ""
             let addWords = 0
             fields = {}
-            if (vtable & FREE_MASK) {
+            if (vtable & 2) {
                 category = "free"
-                numbytes = VAR_BLOCK_WORDS(vtable) << 2
-                maxFree = Math.max(numbytes, maxFree)
-            } else if (vtable & ARRAY_MASK) {
-                numbytes = VAR_BLOCK_WORDS(vtable) << 2
+                numbytes = (vtable >> 2) << 2
+            } else if (vtable & 0x80000000) {
+                numbytes = ((vtable << 1) >>> 3) << 2
                 category = "arraybuffer sz=" + (numbytes >> 2)
-                if (vtable & PERMA_MASK) {
-                    category = "app_alloc sz=" + numbytes
-                    let classification = classifyCPP(objPtr, numbytes >> 2)
-                    if (classification != "?")
-                        category = classification
-                    if (U.startsWith(classification, "Fiber/"))
-                        fiberSize += numbytes
-                } else
-                    category = "arraybuffer sz=" + (numbytes >> 2)
             } else {
-                vtable &= ~ANY_MARKED_MASK
+                vtable &= ~3
                 let vt0 = read32(vtable)
                 if ((vt0 >>> 24) != pxt.VTABLE_MAGIC) {
                     console.log(`Invalid vtable: ${hex(vt0)}`)
@@ -469,7 +391,7 @@ export async function dumpheapAsync() {
                         break
                 }
             }
-            // console.log(`${hex(objPtr)} vt=${hex(vtable)} ${category} bytes=${numbytes}`)
+            // console.log(`${hex(objPtr)} ${category} bytes=${numbytes}`)
             if (!byCategory[category]) {
                 byCategory[category] = 0
                 numByCategory[category] = 0
@@ -496,9 +418,6 @@ export async function dumpheapAsync() {
     for (let c of cats) {
         console.log(`${byCategory[c]}\t${numByCategory[c]}\t${c}`)
     }
-
-    console.log(`max. free block: ${maxFree} bytes`)
-    console.log(`fibers: ${fiberSize} bytes, ${numFibers} fibers; ${numListeners} listeners`)
 
     let dmesg = getDmesg()
     let roots: pxt.Map<HeapRef[]> = {}
@@ -632,26 +551,6 @@ export async function dumpheapAsync() {
                 return mem.slice(start, start + i).toString("utf8")
         }
         return ""
-    }
-
-    function classifyCPP(block: number, blockSize: number) {
-        let w0 = read32(block + 4)
-        let w1 = read32(block + 8)
-        let hx = hex(w0)
-        let classification = pointerClassification[hex(block + 4)]
-        if (!classification)
-            classification = vtablePtrs[hx]
-        if (!classification) {
-            if (blockSize == 1312 / 4)
-                classification = "ST7735WorkBuffer"
-            else if (blockSize == 1184 / 4)
-                classification = "ZPWM_buffer"
-            else if (w0 & 1 && (w0 >> 16) == 2)
-                classification = "codal::BufferData"
-            else
-                classification = "?" // hx
-        }
-        return classification
     }
 }
 

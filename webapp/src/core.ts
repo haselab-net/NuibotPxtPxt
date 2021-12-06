@@ -87,7 +87,7 @@ let asyncLoadingTimeout: pxt.Map<number> = {};
 
 export function showLoadingAsync(id: string, msg: string, operation: Promise<any>, delay: number = 700) {
     clearTimeout(asyncLoadingTimeout[id]);
-    asyncLoadingTimeout[id] = window.setTimeout(function () {
+    asyncLoadingTimeout[id] = setTimeout(function () {
         showLoading(id, msg);
     }, delay);
 

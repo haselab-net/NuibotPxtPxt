@@ -6,32 +6,11 @@
 
 namespace softrobot.socket {
 
-    function getIP(): string {
-        // url IP
-        let ip = util.getURLParam(device.ParameterKey.nuibotIp);
-        let ip_reg = /^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$/
-        if (ip_reg.test(ip)) return ip;
-
-        // local storage ip
-        ip = localStorage.getItem(device.ParameterKey.nuibotIp)
-        if (ip !== null && ip_reg.test(ip)) return ip;
-
-        // default
-        return "192.168.91.104";
-    }
-
-    export let ip_address: string = getIP();
+    export let ip_address: string = "192.168.91.104";
 
     export let web_socket_client: WebSocket;
 
     export let web_socket_client_jsfile: WebSocket = undefined;
-
-    export enum PairStatus {
-        Paired,
-        Pairing,
-        Unpaired
-    }
-    export let paired: util.mobx.Boxed<PairStatus> = util.mobx.toBoxed(PairStatus.Unpaired);
 
     /////////////////////////////////////////////////////////////////
     /////////////////////////    Pair    ////////////////////////////
@@ -72,8 +51,6 @@ namespace softrobot.socket {
      * @author gzl
      */
     export function webPairAsync(): Promise<void> {
-        paired.set(PairStatus.Pairing)
-
         web_socket_client = new WebSocket("ws://" + ip_address + ":80/ws");
         web_socket_client.binaryType = "arraybuffer";
 
@@ -87,8 +64,8 @@ namespace softrobot.socket {
             console.log("Connection closed")
             onWebUnpaired();
         }
-        web_socket_client.onerror = function (ev) {
-            // console.log("Connection error")
+        web_socket_client.onerror = function () {
+            console.error("Connection error")
             onWebUnpaired();
         }
         web_socket_client.onmessage = function (event: MessageEvent) {
@@ -96,21 +73,20 @@ namespace softrobot.socket {
             socket.receiveAsync(event.data as ArrayBuffer);
         }
 
-        return Promise.resolve();
-        // return Promise.delay(1000)
-        //     .then(() => {
-        //         if (!isWebPaired()) return Promise.reject("Failed to create web socket");
-        //         else return Promise.resolve();
-        //     });
+        return Promise.delay(1000)
+            .then(() => {
+                if (!isWebPaired()) return Promise.reject("Failed to create web socket");
+                else return Promise.resolve();
+            });
     }
 
     /**
      * pair softrobot
      */
-    export function webUnpairAsync(): Promise<boolean> {
-        if (!isWebPaired()) return Promise.resolve(false);
+    export function webUnpairAsync(): Promise<void> {
+        if (!isWebPaired()) return Promise.reject("Softrobot is not paired");
         web_socket_client.close();
-        return Promise.resolve(true);
+        return Promise.resolve();
     }
 
     /**
@@ -127,17 +103,17 @@ namespace softrobot.socket {
     export function onWebUnpaired() {
         // intialize corresponding variables to support normal use
         // device.initializeAccess();
-        paired.set(PairStatus.Unpaired)
+        for (const key in onNuibotGoOffline) {
+            onNuibotGoOffline[key]();
+        }
     }
+    export let onNuibotGoOffline: (() => void)[] = [];
 
     /**
      * executed when web socket connection is onopen
      * @author gzl
      */
     export function onWebPaired() {
-        // save NuibotIP
-        localStorage.setItem(device.ParameterKey.nuibotIp, ip_address);
-
         settings.value.control_mode = settings.ControlMode.Development_Mode;    // switch to development mode
         settings.value.sendOfflineMode();       // send current control mode to nuibot
 
@@ -157,8 +133,11 @@ namespace softrobot.socket {
             }
         }
 
-        paired.set(PairStatus.Paired)
+        for (const key in onNuibotGoOnline) {
+            onNuibotGoOnline[key]();
+        }
     }
+    export let onNuibotGoOnline: (() => void)[] = [];
 
     /////////////////////////////////////////////////////////////////
     /////////////////////////    Communication    ///////////////////
@@ -200,10 +179,6 @@ namespace softrobot.socket {
             case command.PacketId.PI_SETTINGS: {
                 let settingId = dataView.getInt16(2, true);
                 switch (settingId) {
-                    case command.PacketSettingsId.PSI_OFFLINE_MODE: {
-                        if (ui.unlockControlModeDropdown) ui.unlockControlModeDropdown();
-                        break;
-                    }
                     case command.PacketSettingsId.PSI_FIRMWARE_INFO: {
                         let jsonObj: device.FirmwareInfo = JSON.parse(util.ab2strAscii(data.slice(4))) as device.FirmwareInfo;
                         device.robotInfo.firmwareInfo = jsonObj;
@@ -223,10 +198,6 @@ namespace softrobot.socket {
             case command.PacketId.PI_PINGPONG: {
                 break;
             }
-            case command.PacketId.PI_OTA: {
-                onRcvOTA();
-                break;
-            }
             default: {
                 console.log("softrobot.socket.receiveAsync::Can not recognize packet: ", data);
                 break;
@@ -236,7 +207,6 @@ namespace softrobot.socket {
     }
     export let onRcvCommandPacket: ((packet: ArrayBuffer) => void)[] = [];
     export let onRcvRecJSFile: (() => void)[] = [];
-    export let onRcvOTA: () => void;     // overwrite by softrobot.tsx
 
     /**
      * Send websocket packet to hardware, packet = type + content
@@ -290,13 +260,6 @@ namespace softrobot.socket {
                 packet = new ArrayBuffer(HEADER_LEN);
                 let pv = new Int16Array(packet);
                 pv[0] = command.PacketId.PI_PINGPONG;
-
-                break;
-            }
-            case command.PacketId.PI_OTA: {
-                packet = new ArrayBuffer(HEADER_LEN);
-                let pv = new Int16Array(packet);
-                pv[0] = command.PacketId.PI_OTA;
 
                 break;
             }

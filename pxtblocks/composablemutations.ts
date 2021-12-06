@@ -295,7 +295,7 @@ namespace pxt.blocks {
                     let value3_val = b.getChildren()[4].inputList[0].fieldRow[0].getValue();
 
                     // get request
-                    let url = `maker.ifttt.com/trigger/${event_val}/with/key/${key_val}`;
+                    let url = `http://maker.ifttt.com/trigger/${event_val}/with/key/${key_val}`;
                     let params: string[][] = [
                         ["value1", value1_val],
                         ["value2", value2_val],
@@ -313,22 +313,16 @@ namespace pxt.blocks {
                     softrobot.editor.showWebhookTester(lf("Test Webhook"), url, params);
                     break;
                 }
-                case "MQTT Sender": {
+                case "MQTT": {
                     // get val
                     let nuibotId_val = b.getChildren()[0].inputList[0].fieldRow[0].getValue();
                     let event_val = b.getChildren()[1].inputList[0].fieldRow[0].getValue();
 
                     // get request
-                    let url = `nuibot.haselab.net:5001/trigger/${event_val}/with/key/${nuibotId_val}`;
+                    let url = `http://haselab.net:5001/trigger/${event_val}/with/key/${nuibotId_val}`;
                     let params: string[][] = [];
 
-                    softrobot.editor.showWebhookTester(lf("MQTT Trigger"), url, params);
-                    break;
-                }
-                case "MQTT Listener": {
-                    let event_val = b.getChildren()[0].inputList[0].fieldRow[0].getValue();
-
-                    softrobot.editor.showMQTTTester(localStorage.getItem(softrobot.device.ParameterKey.nuibotId), event_val)
+                    softrobot.editor.showWebhookTester(lf("Test MQTT"), url, params);
                     break;
                 }
                 default: {

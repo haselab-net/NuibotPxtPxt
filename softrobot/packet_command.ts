@@ -112,7 +112,7 @@ namespace softrobot.packet_command {
                     da = PacketPoseForceControlData.fromBinary(dataArray);
                     break;
                 }
-                case command.CommandId.CI_SET_PARAM:
+                case command.CommandId.CI_SETPARAM:
                 {
                     da = PacketParamData.fromBinary(dataArray);
                     break;
@@ -166,7 +166,7 @@ namespace softrobot.packet_command {
             if (bin.byteLength != 18) return null;
 
             let dataView = new Int16Array(bin);
-            let data: Partial<device.RobotInfo> = {};
+            let data: device.RobotInfo = new device.RobotInfo();
             data.systemId = dataView[0];
             data.nTarget = dataView[1];
             data.nMotor = dataView[2];
@@ -426,7 +426,7 @@ namespace softrobot.packet_command {
         }
     }
 
-    // 9 CI_SET_PARAM
+    // 9 CI_SETPARAM
     export interface IParamData {
         paramType: command.SetParamType;
         params1: number[];
@@ -521,21 +521,13 @@ namespace softrobot.packet_command {
         refKeyframeId?: number;
         refMotorId?: number;
         timeOffset?: number;
-        strictMode?: boolean;
     }
     export interface IMovementDataRcv {
         movementCommandId: number;
         movementId?: number;
         keyframeId?: number;
         success?: number;
-        startTime?: number;
-        endTime?: number;
         nOccupied?: number[];
-
-        movementManagerMovementCount?: number;
-        movementManagerMovementIds?: number[];
-        movementManagerKeyframeCount?: number[];
-        movementTime?: number;
     }
     export class PacketMovementData implements IPacketData {
         data: IMovementData | IMovementDataRcv;
@@ -545,7 +537,7 @@ namespace softrobot.packet_command {
         getDataLength(): number {
             switch (this.data.movementCommandId) {
                 case command.CommandIdMovement.CI_M_ADD_KEYFRAME:
-                    return 1 + 11 + 5 * device.robotInfo.nMotor;
+                    return 1 + 10 + 3 * device.robotInfo.nMotor;
                 case command.CommandIdMovement.CI_M_PAUSE_MOV:
                     return 1 + 2 + 1 * device.robotInfo.nMotor;
                 case command.CommandIdMovement.CI_M_RESUME_MOV:
@@ -579,7 +571,7 @@ namespace softrobot.packet_command {
                     p = util.writeArrayBufferNum(util.cDataType.uint8, dataView, p, data.motorCount);
                     p = util.writeArrayBufferNumArray(util.cDataType.uint8, dataView, p, data.motorId);
                     p = util.writeArrayBufferNum(util.cDataType.uint16, dataView, p, data.period);
-                    p = util.writeArrayBufferNumArray(util.cDataType.int32, dataView, p, data.pose);
+                    p = util.writeArrayBufferNumArray(util.cDataType.int16, dataView, p, data.pose);
 
                     // little endian on esp side
                     p = util.writeArrayBufferNum(util.cDataType.uint8, dataView, p, data.refKeyframeId);
@@ -587,10 +579,6 @@ namespace softrobot.packet_command {
 
                     p = util.writeArrayBufferNum(util.cDataType.uint8, dataView, p, data.refMotorId);
                     p = util.writeArrayBufferNum(util.cDataType.int16, dataView, p, data.timeOffset);
-
-                    let flags = parseInt("00000000", 2);
-                    flags |= (+ data.strictMode << 7);
-                    p = util.writeArrayBufferNum(util.cDataType.uint8, dataView, p, flags);
                     break;
                 case command.CommandIdMovement.CI_M_PAUSE_MOV:
                     p = util.writeArrayBufferNum(util.cDataType.uint8, dataView, p, data.movementId);
@@ -625,6 +613,12 @@ namespace softrobot.packet_command {
             let dataView = new DataView(bin);
             p = util.readArrayBufferNum(util.cDataType.uint8, data, "movementCommandId", dataView, p);
             switch (data.movementCommandId) {
+                case command.CommandIdMovement.CI_M_ADD_KEYFRAME:
+                    p = util.readArrayBufferNum(util.cDataType.uint8, data, "movementId", dataView, p);
+                    p = util.readArrayBufferNum(util.cDataType.uint8, data, "keyframeId", dataView, p);
+                    p = util.readArrayBufferNum(util.cDataType.uint8, data, "success", dataView, p);
+                    p = util.readArrayBufferNumArray(util.cDataType.uint8, data, "nOccupied", device.robotInfo.nMotor, dataView, p);
+                    break;
                 case command.CommandIdMovement.CI_M_PAUSE_MOV:
                 case command.CommandIdMovement.CI_M_RESUME_MOV:
                 case command.CommandIdMovement.CI_M_CLEAR_MOV:
@@ -633,19 +627,8 @@ namespace softrobot.packet_command {
                 case command.CommandIdMovement.CI_M_CLEAR_PAUSED:
                 case command.CommandIdMovement.CI_M_CLEAR_ALL:
                     break;
-                case command.CommandIdMovement.CI_M_ADD_KEYFRAME:
-                    p = util.readArrayBufferNum(util.cDataType.uint8, data, "movementId", dataView, p);
-                    p = util.readArrayBufferNum(util.cDataType.uint8, data, "keyframeId", dataView, p);
-                    p = util.readArrayBufferNum(util.cDataType.uint8, data, "success", dataView, p);
-                    p = util.readArrayBufferNum(util.cDataType.uint16, data, "startTime", dataView, p);
-                    p = util.readArrayBufferNum(util.cDataType.uint16, data, "endTime", dataView, p);
                 case command.CommandIdMovement.CI_M_QUERY:
                     p = util.readArrayBufferNumArray(util.cDataType.uint8, data, "nOccupied", device.robotInfo.nMotor, dataView, p);
-
-                    p = util.readArrayBufferNum(util.cDataType.uint8, data, "movementManagerMovementCount", dataView, p);
-                    p = util.readArrayBufferNumArray(util.cDataType.uint8, data, "movementManagerMovementIds", data.movementManagerMovementCount, dataView, p);
-                    p = util.readArrayBufferNumArray(util.cDataType.uint8, data, "movementManagerKeyframeCount", data.movementManagerMovementCount, dataView, p);
-                    p = util.readArrayBufferNum(util.cDataType.uint16, data, "movementTime", dataView, p);
                     break;
             }
             return new PacketMovementData(data);

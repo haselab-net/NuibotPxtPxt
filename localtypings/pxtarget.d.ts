@@ -346,11 +346,11 @@ declare namespace ts.pxtc {
         slowMethods?: boolean;
         slowFields?: boolean;
         skipClassCheck?: boolean;
-        noThisCheckOpt?: boolean;
+        noThisCheckOpt?: boolean;        
         numFloat?: boolean;
         noTreeShake?: boolean;
         inlineConversions?: boolean;
-        noPeepHole?: boolean;
+        noPeepHole?: boolean;        
     }
 
     interface CompileTarget {
@@ -459,12 +459,9 @@ declare namespace ts.pxtc {
 declare namespace sr{
     interface SoftRobotConfig{
         corsProxy: string;          // proxy server address for cross domain http request (used in testing webhook), refer to https://github.com/Rob--W/cors-anywhere
-        mqttHttpServer: string;
-        firmwareVersionServer: string;
         compile: CompileConfig;
         ui: ui;
         test: boolean;
-        noUpdateFirmwarePopup: boolean;
     }
 
     // the configeration for compile blocks and upload code to softrobot
@@ -473,6 +470,9 @@ declare namespace sr{
     }
 
     interface ui {
-
+        editortoolbar: {
+            showControlMode: boolean;
+            showPairButton: boolean;
+        }
     }
 }

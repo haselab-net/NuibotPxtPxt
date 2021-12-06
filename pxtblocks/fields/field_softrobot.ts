@@ -23,15 +23,7 @@ namespace pxtblockly {
                     }
                 }
             }
-
-            if (block.hasOwnProperty('childBlocks_')) {
-                for (const childBlock of (block as any).childBlocks_) {
-                    const field = getFieldByName(childBlock as Blockly.Block, name)
-                    if (field !== undefined) return field
-                }
-            }
-
-            console.log(`Unable to find field with name: ${name}`);
+            // console.log(`Unable to find field with name: ${name}`);
             return undefined;
         }
 
@@ -50,7 +42,7 @@ namespace pxtblockly {
 
             let motorParamValueField = getFieldByName(block, "value");
             if (!motorParamValueField) return;
-            // motorParamValueField.setValue(softrobot.device.robotState.motor[motorId][motorParamType]);  // FIXME: use cache to set value would cause error
+            motorParamValueField.setValue(softrobot.device.robotState.motor[motorId][motorParamType].toString());
         }
     }
 
@@ -99,12 +91,11 @@ namespace pxtblockly {
             if (!!this.params &&
                 !(softrobot.settings.value.control_mode == softrobot.settings.ControlMode.Synchronization_Mode) &&     // synchonise use command in simulator to control robot
                 this.parseBoolean(this.params.isActive) &&        // real-time inform is allowed in setting
-                !!this.sourceBlock_.parentBlock_ &&                 // the block have an parent block
-                !!this.sourceBlock_.parentBlock_.parentBlock_
+                !!this.sourceBlock_.parentBlock_                  // the block have an parent block
                 ) {
-                let motor: string | undefined = this.getMotor();
-                if (typeof motor === "undefined") return;
-                let motorId: number = typeof motor === "number" ? motor : motor ? parseInt(motor.substr(motor.length - 1)) : 0;
+                let motor: string = this.getMotor();
+                if (!motor) return;
+                let motorId: number = motor ? parseInt(motor.substr(motor.length - 1)) : 0;
                 let inst: softrobot.message_command.IMotorInstruction = {
                     motorId: motorId
                 }
@@ -126,8 +117,11 @@ namespace pxtblockly {
                             inst[this.params.type] = parseInt(this.getValue());
                             break;
                         case "auto":
-                            let pt = this.getMotorParamType().replace(/\"/g, "");
-                            inst[pt] = parseInt(this.getValue());
+                            let pt = this.getMotorParamType();
+                            if (!pt) return;
+                            let key: number = parseInt(pt);
+                            let array = Object.keys(softrobot.device.robotState.motor[0]);
+                            inst[array[key]] = parseInt(this.getValue());
                             break;
                         default:
                             console.log("FieldMotorParam: wrong type");
@@ -139,13 +133,13 @@ namespace pxtblockly {
         }
 
         private getMotor (): string {
-            let field: Blockly.Field = motor.getFieldByName(this.sourceBlock_.parentBlock_, "motor");
+            let field: Blockly.Field = motor.getFieldByName(this.sourceBlock_, "motor");
             if (!field) return undefined;
             return field.getValue();
         }
 
         private getMotorParamType(): string {
-            let field: Blockly.Field = motor.getFieldByName(this.sourceBlock_.parentBlock_, "parameterType");
+            let field: Blockly.Field = motor.getFieldByName(this.sourceBlock_, "parameterType");
             if (!field) return undefined;
             return field.getValue();
         }
@@ -158,7 +152,7 @@ namespace pxtblockly {
 
     /**
      * Field for change the motor with a dropdown
-     * @description When the available motors on hardware are changed,
+     * @description When the available motors on hardware are changed, 
      * the available options in the dropdown would change
      */
      export interface FieldMotorOptions extends Blockly.FieldCustomDropdownOptions {
@@ -181,14 +175,14 @@ namespace pxtblockly {
          }
 
          /**
-          * change value field according to cached value when field changed
+          * change value field according to cached value when field changed 
           */
          setValue(newValue: string | number) {
             let v: number = typeof newValue === "string" ? parseInt(newValue) : Math.floor(newValue);
             if (isNaN(v)) v = 0;
             else if (v < 0) v = 0;
             else if (v >= this.nMotor) v = this.nMotor - 1;
-            super.setValue(v.toString());
+            super.setValue(v);
             if (this.sourceBlock_) motor.setMotorParamDefaultValue(this.sourceBlock_);
          }
      }
@@ -247,7 +241,7 @@ namespace pxtblockly {
          }
 
          /**
-          * change value field according to cached value when field changed
+          * change value field according to cached value when field changed 
           */
          setValue(newValue: string | number) {
             if (typeof newValue === "number") return;
@@ -267,156 +261,13 @@ namespace pxtblockly {
  * Field for movement input && HTTP Request Param
  */
 namespace pxtblockly {
-    export class DuplicateNameChecker {
-        private names: {
-            [key: string]: {
-                count: number;
-                codeStr: string;
-            }
-        } = {};   // key: movement name, value: movement str
-
-        private readonly BLOCK_TYPE = "motor_movementDecoder";
-        private readonly FIELD_NAME = "MOVEMENT";
-        private readonly MOVEMENT_NAME_REGEX = /^.+?[ \n\r]/;
-
-        private changeListenerHandler: Blockly.callbackHandler = undefined;
-
-        clear(workspace: Blockly.Workspace): void {
-            // clear cache
-            this.names = {};
-
-            if (this.changeListenerHandler !== undefined) {
-                workspace.removeChangeListener(this.changeListenerHandler)
-            }
-        }
-
-        init(workspace: Blockly.Workspace) {
-            this.clear(workspace);
-
-            // analyse the existing dom tree
-            let blocks = workspace.getAllBlocks();
-            for (let block of blocks) {
-                if (block.type === this.BLOCK_TYPE) {
-                    this.addOneByBlock(block, false);
-                }
-            }
-
-            // bind callback
-            this.changeListenerHandler = workspace.addChangeListener((event: Blockly.BlocklyEvent) => {
-                if (event.type === Blockly.Events.CREATE) {
-                    this.handleCreate(workspace.getBlockById(event.blockId), true);
-                }
-                else if (event.type === Blockly.Events.DELETE) {
-                    this.removeByXml((event as any).oldXml);
-                }
-                else if (event.type === Blockly.Events.CHANGE && workspace.getBlockById(event.blockId).type === this.BLOCK_TYPE && event.element === "field") {
-                    this.changeCodeStr(event.oldValue, event.newValue);
-                }
-            })
-        }
-
-        private handleCreate(block: Blockly.Block, preventDuplicateName: boolean) {
-            if (block.type === this.BLOCK_TYPE) {
-                this.addOneByBlock(block, true);
-            }
-
-            const childBlocks = (block as any).childBlocks_;
-            for (let i = 0; i < childBlocks.length; i++) {
-                this.handleCreate(childBlocks[i], true);
-            }
-        }
-        private addOneByBlock(block: Blockly.Block, preventDuplicateName: boolean) {
-            let str = removeQuotes(block.getFieldValue(this.FIELD_NAME));
-            let name: string = str.match(this.MOVEMENT_NAME_REGEX)[0].trim();
-            console.info(`add ${name}`);
-            this.addOne(name, str);
-
-            // change duplicated name
-            if (preventDuplicateName && (this.exists(name) && this.names[name].count >= 2)) {
-                let newName = this.pickUniqueName(name);
-                block.setFieldValue(block.getFieldValue(this.FIELD_NAME).replace(new RegExp(name), newName), this.FIELD_NAME);
-                name = newName;
-            }
-        }
-        private removeByXml(xml: any) {      // may contain more than one node
-            let domParser = new DOMParser();
-            let dom: Document = domParser.parseFromString(xml.outerHTML as string, "text/html");
-            let nodes: NodeListOf<Element> = dom.querySelectorAll(`block[type=${this.BLOCK_TYPE}]`);
-            for (let i = 0; i < nodes.length; i++) {
-                let field = dom.querySelector(`field[name=${this.FIELD_NAME}]`);
-                let str = removeQuotes(field.textContent);
-                let name: string = str.match(this.MOVEMENT_NAME_REGEX)[0].trim();
-                console.info(`remove ${name}`);
-                this.removeOne(name);
-            }
-        }
-        private changeCodeStr(oldValue: string, newValue: string) {
-            let oldCodeStr = removeQuotes(oldValue), newCodeStr = removeQuotes(newValue);
-            let oldName = oldCodeStr.match(this.MOVEMENT_NAME_REGEX)[0].trim(), newName = newCodeStr.match(this.MOVEMENT_NAME_REGEX)[0].trim();
-
-            if (oldName !== newName) {
-                this.removeOne(oldName);
-                this.addOne(newName, newCodeStr);
-                console.info(`change ${oldName} to ${newName}`);
-            }
-            else {
-                this.names[newName].codeStr = newCodeStr;
-            }
-        }
-
-        exists(name: string): boolean {
-            if (this.names[name]) return true;
-            return false;
-        }
-        private addOne(name: string, value: string) {
-            if (this.exists(name)) this.names[name].count += 1;
-            else this.names[name] = {
-                count: 1,
-                codeStr: value
-            };
-        }
-        private removeOne(name: string) {
-            if (this.names[name].count > 1) this.names[name].count -= 1;
-            else delete this.names[name];
-        }
-        private pickUniqueName(prefix: string): string {
-            if (!this.exists(prefix)) return prefix;
-
-            function nameGenerator() {
-                let suffix = "#" + randomGenerator(6);
-                if (prefix.match(/_#[0-9a-f]{6}$/)) {
-                    return prefix.replace(/(^.*_)(#[0-9a-f]{6}$)/, `$1${suffix}`);
-                }
-
-                return `${prefix}_${suffix}`;
-            }
-
-            function randomGenerator(length: number) {
-                return Math.random().toString(16).substr(2, length);
-            }
-
-            while (1) {
-                let tempName = nameGenerator();
-                if (!this.exists(tempName)) return tempName;
-            }
-            return undefined;
-        }
-
-        list(): {name: string, count: number}[] {
-            return Object.keys(this.names).map((name) => ({
-                name: name,
-                count: this.names[name].count
-            }))
-        }
-    }
-    export let duplicateNameChecker = new DuplicateNameChecker();
+    // TODO support converting JS code to Block code
 
     export interface FieldMovementOptions {
         showEditor: (currentValue: string, setValue: (newValue: string) => void) => void;
         convertDisplayString?: (str: string) => string;
-        defaultCodeStr?: string;
-        displayColor?: boolean;
     }
+
     export class FieldMovement extends Blockly.Field implements Blockly.FieldCustom {
         public isFieldCustom_ = true;
 
@@ -430,30 +281,18 @@ namespace pxtblockly {
         private boxMarginTop: number = 5;
         private boxMarginLeft: number = 5;
 
-        private codeStr: string = "default\n2 1 4000\n3 0\n1000 1000\n3000 0";
+        private codeStr: string = "";
+        public defaultText = "default\n2 1 4000\n3 0\n1000 1000\n3000 0";
 
         private showEditor: (currentValue: string, setValue: (newValue: string) => void) => void;
-
-        private displayColor: boolean = false;
 
         constructor(text: string, params: FieldMovementOptions, validator?: Function) {
             super(text, validator);
 
             this.showEditor = params.showEditor;
             if (params.convertDisplayString) this.convertDisplayString = params.convertDisplayString;
-            if (params.defaultCodeStr) this.codeStr = params.defaultCodeStr;
-            if (params.displayColor) this.displayColor = params.displayColor;
 
             this.setValue = this.setValue.bind(this);
-            this.setValue(`\`${this.codeStr}\``);
-
-            if (this.sourceBlock_) {
-                console.log("register on change 0");
-                (this.sourceBlock_ as any).onchange = (event: any) => {
-                    console.log(event);
-                }
-            }
-            // let a = Blockly.Events.DELETE;
         }
 
         showEditor_() {
@@ -463,7 +302,6 @@ namespace pxtblockly {
         setValue(newValue: string | number, restoreState = true) {
             if (typeof newValue === "number") return;
             super.setValue(newValue);
-            // TODO update duplicate checker
             if (this.elt) {
                 if (restoreState) this.restoreStateFromString();
                 this.render_();
@@ -487,7 +325,7 @@ namespace pxtblockly {
             let strContent = str.length > this.textMaxLength ? str.slice(0, this.textMaxLength) + " ..." : str;
             return `\" ${strContent} \"`;
         }
-        private updateDisplayText() {
+        private updateDisplay() {
             let str: string = this.convertDisplayString(this.codeStr);
             this.fieldText.textContent = str;
             let textBBox = this.fieldText.getBBox();
@@ -500,20 +338,6 @@ namespace pxtblockly {
             let textY: number = newRectHeight / 2 + this.boxMarginTop;
             this.fieldText.setAttribute("x", this.textMarginLeft.toString());
             this.fieldText.setAttribute("y", textY.toString());
-        }
-        private updateDisplayColor() {
-            const str: string = this.convertDisplayString(this.codeStr);
-            const color = softrobot.util.str2Color(str);
-            this.fieldRect.setAttribute("width", "30");
-            this.fieldRect.setAttribute("height", "30");
-            this.fieldRect.setAttribute("style", `fill:rgb(${color[0]},${color[1]},${color[2]});stroke-width:3;stroke:rgb(0,0,0)`);
-        }
-        private updateDisplay() {
-            if (this.displayColor) {
-                this.updateDisplayColor();
-            } else {
-                this.updateDisplayText();
-            }
         }
 
         private initFieldDisplay() {
@@ -536,11 +360,7 @@ namespace pxtblockly {
             this.updateDisplay();
 
             this.elt.addEventListener("click", () => this.showEditor_.bind(this));
-            if (this.fieldGroup_ !== undefined) {
-                this.fieldGroup_.appendChild(this.elt);
-            } else {
-                console.info("this.fieldGroup_ is undefined");
-            }
+            this.fieldGroup_.appendChild(this.elt);
         }
 
         render_() {
@@ -579,30 +399,10 @@ namespace pxtblockly {
 }
 
 /**
- * Movement name dropdown
- */
- namespace pxtblockly {
-    export interface FieldMovementNameDropdownOptions extends Blockly.FieldCustomDropdownOptions {
-    }
-     export class FieldMovementNameDropdown extends Blockly.FieldDropdown implements Blockly.FieldCustom {
-         isFieldCustom_: boolean = true;
-
-         constructor(text: string, params: FieldMovementNameDropdownOptions, opt_validator?: Function) {
-             super(() => {
-                 let list = duplicateNameChecker.list().map(val => [val.name, val.name]);
-                 if (list.length === 0) list = [["", ""]];
-                 return list;
-                }, opt_validator);
-             console.log("drop down field");
-         }
-     }
- }
-
-/**
  * Field for change the length of motor of softrobot with slider
- * @description When the length in the block is changed,
- * the hardware (softrobot) will change its length of corresponding motor simultaneously
- * @deprecated use FieldMotorParam with type "pose" instead
+ * @description When the length in the block is changed, 
+ * the hardware (softrobot) will change its length of corresponding motor simultaneously 
+ * @deprecated use FieldMotorParam with type "pose" instead 
  */
  namespace pxtblockly {
     export interface FieldLengthOptions extends Blockly.FieldCustomOptions {

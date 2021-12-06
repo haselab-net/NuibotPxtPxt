@@ -8,12 +8,9 @@ namespace softrobot.message_command {
     /////////////////////////    Callbacks //////////////////////////
     /////////////////////////////////////////////////////////////////
 
-    export function onReceiveCIBoardinfo(data: Partial<device.RobotInfo>) {
-        util.copyProps(device.robotInfo, data)
+    export function onReceiveCIBoardinfo(data: device.RobotInfo) {
+        device.robotInfo = data;
         device.checkRobotState();
-
-        // save nuibotId to local storage
-        localStorage.setItem(device.ParameterKey.nuibotId, util.macAddress2NuibotId(data.macAddress))
 
         for (let i: number = 0; i < onRcvCIBoardInfoMessage.length; i++) {
             onRcvCIBoardInfoMessage[i]();
@@ -22,7 +19,7 @@ namespace softrobot.message_command {
     export function onReceiveCISensor(data: packet_command.ISensorDataRcv) {
         callbacks.onRcvTouchMessage(device.robotState.touch, data.touch);
 
-        util.setPropArray("poseRcv", data.pose, device.robotState.motor);
+        device.robotState.setPropArray("poseRcv", data.pose, device.robotState.motor);
         device.robotState.current = data.current;
         device.robotState.force = data.force;
         device.robotState.touch = data.touch;
@@ -32,8 +29,8 @@ namespace softrobot.message_command {
         }
     }
     export function onReceiveCIDirect(data: packet_command.IPoseDirectDataRcv) {
-        util.setPropArray("poseRcv", data.pose, device.robotState.motor);
-        util.setPropArray("velocityRcv", data.velocity, device.robotState.motor);
+        device.robotState.setPropArray("poseRcv", data.pose, device.robotState.motor);
+        device.robotState.setPropArray("velocityRcv", data.velocity, device.robotState.motor);
     }
     export function onReceiveCIInterpolate(data: packet_command.IPoseInterpolateDataRcv) {
         function calculateInterpolateState() {
@@ -48,7 +45,7 @@ namespace softrobot.message_command {
             device.robotState.nInterpolateVacancy = device.robotState.nInterpolateTotal - device.robotState.nInterpolateRemain - readDiff;
         }
 
-        util.setPropArray("poseRcv", data.pose, device.robotState.motor);
+        device.robotState.setPropArray("poseRcv", data.pose, device.robotState.motor);
 
         device.robotState.interpolateTargetCountOfReadMin = data.targetCountReadMin;
         device.robotState.interpolateTargetCountOfReadMax = data.targetCountReadMax;
@@ -76,24 +73,15 @@ namespace softrobot.message_command {
     export function onReceiveCIUMovement(data: packet_command.IMovementDataRcv) {
         switch (data.movementCommandId) {
             case command.CommandIdMovement.CI_M_ADD_KEYFRAME:
-                device.robotState.movementState.addKeyframe({
-                    movementId: data.movementId,
-                    keyframeId: data.keyframeId,
-                    startTime: data.startTime,
-                    endTime: data.endTime
-                })
             case command.CommandIdMovement.CI_M_QUERY:
-                device.robotState.movementState.proceedTime(data.movementTime)
-
                 device.robotState.movementState.nOccupied = data.nOccupied;
-                device.robotState.movementState.movementManagerMovementIds = data.movementManagerMovementIds;
-                device.robotState.movementState.movementManagerKeyframeCount = data.movementManagerKeyframeCount;
                 break;
             default:
                 break;
         }
-
-        onRcvCIUMovementMessage.map((val) => val(data));
+        for (let i: number = 0; i < onRcvCIUMovementMessage.length; i++) {
+            onRcvCIUMovementMessage[i](data);
+        }
     }
 
     export let onRcvCIBoardInfoMessage: (() => void)[] = [];        // overwrite by target
@@ -101,7 +89,7 @@ namespace softrobot.message_command {
     export let onRcvCIDirectMessage: (() => void)[] = [];           // overwrite by target
     export let onRcvCIInterpolateMessage: (() => void)[] = [];      // overwrite by target
     export let onRcvCIResetSensorMessage: (() => void)[] = [];      // overwrite by target
-    export let onRcvCIUMovementMessage: util.MyMap<(data: packet_command.IMovementDataRcv) => void> = new util.MyMap<(data: packet_command.IMovementData) => void>();
+    export let onRcvCIUMovementMessage: ((data: packet_command.IMovementDataRcv) => void)[] = [];
 
     /////////////////////////////////////////////////////////////////
     /////////////////////////    Receive    /////////////////////////
@@ -133,7 +121,7 @@ namespace softrobot.message_command {
                 // TODO replace later
                 let data: packet_command.IPoseForceControlDataRcv = packet.data.data as packet_command.IPoseForceControlDataRcv;
 
-                util.setPropArray("pose", data.pose, device.robotState.motor);
+                device.robotState.setPropArray("pose", data.pose, device.robotState.motor);
 
                 device.robotState.interpolateTargetCountOfReadMin = data.targetCountReadMin;
                 device.robotState.interpolateTargetCountOfReadMax = data.targetCountReadMax;
@@ -147,7 +135,7 @@ namespace softrobot.message_command {
 
                 break;
             }
-            case command.CommandId.CI_SET_PARAM:
+            case command.CommandId.CI_SETPARAM:
             {
                 break;
             }
@@ -262,7 +250,7 @@ namespace softrobot.message_command {
 
     export function setMotorParam(data: packet_command.IParamData,
                                     pktSender: (packet: packet_command.Packet) => void = sendMessage) {
-        let p: packet_command.Packet = new packet_command.Packet(command.CommandId.CI_SET_PARAM, new packet_command.PacketParamData(data));
+        let p: packet_command.Packet = new packet_command.Packet(command.CommandId.CI_SETPARAM, new packet_command.PacketParamData(data));
         if (!p) return;
         pktSender(p);
     }
@@ -316,8 +304,8 @@ namespace softrobot.message_command {
         if (util.haveProp(inst.pose) || util.haveProp(inst.velocity)) {
             if (util.haveProp(inst.pose)) device.robotState.motor[inst.motorId].pose = util.limitNum(inst.pose, device.robotState.motor[inst.motorId].lengthMin, device.robotState.motor[inst.motorId].lengthMax);
             if (util.haveProp(inst.velocity)) device.robotState.motor[inst.motorId].velocity = inst.velocity;
-            let pose: number[] = util.getPropArray<number>("pose", device.robotState.motor);
-            let velocity: number[] = util.getPropArray<number>("velocity", device.robotState.motor);
+            let pose: number[] = device.robotState.getPropArray<number>("pose", device.robotState.motor);
+            let velocity: number[] = device.robotState.getPropArray<number>("velocity", device.robotState.motor);
             movement.sendKeyframeQueue.clear();      // clear waiting keyframes in the queue
             setMotorDirect({
                 pose: pose,
@@ -331,8 +319,8 @@ namespace softrobot.message_command {
         if (util.haveProp(inst.controlK) || util.haveProp(inst.controlB)) {
             if (util.haveProp(inst.controlK)) device.robotState.motor[inst.motorId].controlK = inst.controlK;
             if (util.haveProp(inst.controlB)) device.robotState.motor[inst.motorId].controlB = inst.controlB;
-            let controlK: number[] = util.getPropArray<number>("controlK", device.robotState.motor);
-            let controlB: number[] = util.getPropArray<number>("controlB", device.robotState.motor);
+            let controlK: number[] = device.robotState.getPropArray<number>("controlK", device.robotState.motor);
+            let controlB: number[] = device.robotState.getPropArray<number>("controlB", device.robotState.motor);
             setMotorParam({
                 paramType: command.SetParamType.PT_PD,
                 params1: controlK,
@@ -340,7 +328,7 @@ namespace softrobot.message_command {
         }
         if (util.haveProp(inst.controlA)) {
             if (util.haveProp(inst.controlA)) device.robotState.motor[inst.motorId].controlA = inst.controlA;
-            let controlA: number[] = util.getPropArray<number>("controlA", device.robotState.motor);
+            let controlA: number[] = device.robotState.getPropArray<number>("controlA", device.robotState.motor);
             setMotorParam({
                 paramType: command.SetParamType.PT_CURRENT,
                 params1: controlA,
@@ -349,8 +337,8 @@ namespace softrobot.message_command {
         if (util.haveProp(inst.torqueMin) || util.haveProp(inst.torqueMax)) {
             if (util.haveProp(inst.torqueMin)) device.robotState.motor[inst.motorId].torqueMin = inst.torqueMin;
             if (util.haveProp(inst.torqueMax)) device.robotState.motor[inst.motorId].torqueMax = inst.torqueMax;
-            let torqueMin: number[] = util.getPropArray<number>("torqueMin", device.robotState.motor);
-            let torqueMax: number[] = util.getPropArray<number>("torqueMax", device.robotState.motor);
+            let torqueMin: number[] = device.robotState.getPropArray<number>("torqueMin", device.robotState.motor);
+            let torqueMax: number[] = device.robotState.getPropArray<number>("torqueMax", device.robotState.motor);
             setMotorParam({
                 paramType: command.SetParamType.PT_TORQUE_LIMIT,
                 params1: torqueMin,
@@ -374,8 +362,8 @@ namespace softrobot.message_command {
     export function updateRemoteDirect() {
         movement.sendKeyframeQueue.clear();
         setMotorDirect({
-            pose: util.getPropArray<number>("pose", device.robotState.motor),
-            velocity: util.getPropArray<number>("velocity", device.robotState.motor)
+            pose: device.robotState.getPropArray<number>("pose", device.robotState.motor),
+            velocity: device.robotState.getPropArray<number>("velocity", device.robotState.motor)
         });
     }
 }

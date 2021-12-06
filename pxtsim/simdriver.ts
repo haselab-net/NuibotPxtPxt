@@ -313,10 +313,9 @@ namespace pxsim {
             msg.options = {
                 theme: this.themes[this.nextFrameId++ % this.themes.length],
                 player: mc,
-                robotInfo: softrobot.util.instance2PlainWithoutFuncDeep(softrobot.device.robotInfo),
-                robotState: softrobot.util.instance2PlainWithoutFuncDeep(softrobot.device.robotState),
-                synchronizationMode: softrobot.settings.value.control_mode === softrobot.settings.ControlMode.Synchronization_Mode,
-                mqttHttpServer: pxt.appTarget.softRobot.mqttHttpServer
+                robotInfo: softrobot.device.robotInfo,
+                robotState: softrobot.device.robotState,
+                synchronizationMode: softrobot.settings.value.control_mode === softrobot.settings.ControlMode.Synchronization_Mode
             };
             msg.id = `${msg.options.theme}-${this.nextId()}`;
             frame.dataset['runid'] = this.runId;

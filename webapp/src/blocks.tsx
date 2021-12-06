@@ -102,8 +102,6 @@ export class Editor extends toolboxeditor.ToolboxEditor {
                     this.resize();
                     Blockly.svgResize(this.editor);
                     this.isFirstBlocklyLoad = false;
-
-                    pxtblockly.duplicateNameChecker.init(this.editor);
                 }).finally(() => {
                     this.loadingXml = false
                     try {

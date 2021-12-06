@@ -46,7 +46,6 @@ namespace pxt.blocks {
         registerFieldEditor('length', pxtblockly.FieldLength);
         registerFieldEditor('motor', pxtblockly.FieldMotor);
         registerFieldEditor('motorparamtype', pxtblockly.FieldMotorParamType);
-        registerFieldEditor('movementname', pxtblockly.FieldMovementNameDropdown);
         // registerFieldEditor('movement', pxtblockly.FieldMovement);
     }
 

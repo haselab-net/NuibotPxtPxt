@@ -134,8 +134,6 @@ namespace pxtblockly {
                 }
             }
             return 1 << existing.length;
-        } else if (opts.isHash) {
-            return 0; // overriden when compiled
         }
         else {
             const start = opts.firstValue || 0;

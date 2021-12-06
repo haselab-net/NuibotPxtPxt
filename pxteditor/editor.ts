@@ -64,7 +64,6 @@ namespace pxt.editor {
 
         home?: boolean;
         hasError?: boolean;
-        rookieMode?: boolean;
     }
 
     export interface EditorState {
@@ -225,10 +224,10 @@ namespace pxt.editor {
         toggleHighContrast(): void;
         toggleGreenScreen(): void;
         pair(): void;
-        controlModeSoftRobot(): void;
+        pairSoftRobot(): void;
+        unpairSoftRobot(): void;
+        settingsSoftRobot(): void;
         calibrationSoftRobot(): void;
-        inspectorSoftRobot(): void;
-        hwSettingsSoftRobot(): void;
         launchFullEditor(): void;
 
         settings: EditorSettings;
@@ -261,7 +260,6 @@ namespace pxt.editor {
         showBoardDialogAsync(features?: string[], closeIcon?: boolean): Promise<void>;
 
         showModalDialogAsync(options: ModalDialogOptions): Promise<void>;
-        showRookieModePage(): void;
     }
 
     export interface IHexFileImporter {

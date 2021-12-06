@@ -15,19 +15,7 @@ namespace softrobot.sim {
         httpGet?: {
             url: string;
         }
-        mqtt?: {
-            command?: 'start' | 'end';
-            mqttMessage?: {
-                event: string;
-                value1: string;
-                value2: string;
-                value3: string;
-            }
-            address?: string
-        }
     }
-
-    export let mqttHandler: (msg: SrSimulatorMessage) => void;             // overwrite by app
 
     /**
      * Message from simulator
@@ -57,10 +45,6 @@ namespace softrobot.sim {
                     http.open("GET", cros_api_url + msg.httpGet.url);
                     http.send();
                 }
-                break;
-            }
-            case 'mqtt': {
-                mqttHandler(msg);
                 break;
             }
             default: {

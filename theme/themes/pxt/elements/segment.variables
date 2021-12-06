@@ -2,5 +2,5 @@
     User Variable Overrides
 *******************************/
 
-@background: @purple100;
-@invertedBackground: @purple100;
+@background: @mainMenuBackground;
+@invertedBackground: @mainMenuInvertedBackground;

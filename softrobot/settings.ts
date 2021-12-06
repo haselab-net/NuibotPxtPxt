@@ -10,7 +10,7 @@ namespace softrobot.settings {
     }
     export class Settings {
         private _control_mode: ControlMode = ControlMode.Development_Mode;
-        public onSyncModeChange: ((syncMode: boolean) => void)[] = [];        // overwrite by app.tsx to inform simulator
+        public onSyncModeChange = (syncMode: boolean) => {};        // overwrite by app.tsx to inform simulator
 
         public sendOfflineMode() {                                  // inform hardware
             let buf = new ArrayBuffer(4);
@@ -21,7 +21,6 @@ namespace softrobot.settings {
         }
         // inform nuibot
         private onOfflineModeChange() {
-            ui.lockControlModeDropdown();
             this.sendOfflineMode();
         }
         get control_mode(): ControlMode {
@@ -29,19 +28,19 @@ namespace softrobot.settings {
         }
         set control_mode(v: ControlMode) {
             if (v != this._control_mode) {
-                let oldMode = this._control_mode;
+                let tmp = this._control_mode;
                 this._control_mode = v;
 
                 // 1. clear hardware movement list when exit synchronization mode || offline mode
-                if (oldMode == ControlMode.Synchronization_Mode || oldMode == ControlMode.Offline_Mode) message_command.setMovement({
+                if (tmp == ControlMode.Synchronization_Mode || tmp == ControlMode.Offline_Mode) message_command.setMovement({
                     movementCommandId: command.CommandIdMovement.CI_M_CLEAR_ALL
                 });
 
                 // 2. inform hardware if offline mode change
-                if (oldMode == ControlMode.Offline_Mode || v == ControlMode.Offline_Mode) this.onOfflineModeChange();
+                if (tmp == ControlMode.Offline_Mode || v == ControlMode.Offline_Mode) this.onOfflineModeChange();
 
                 // 3. inform simulator if synchronization mode change
-                if (oldMode == ControlMode.Synchronization_Mode || v == ControlMode.Synchronization_Mode) this.onSyncModeChange.map(func => func(v == ControlMode.Synchronization_Mode));
+                if (tmp == ControlMode.Synchronization_Mode || v == ControlMode.Synchronization_Mode) this.onSyncModeChange(v == ControlMode.Synchronization_Mode);
             }
         }
     }
