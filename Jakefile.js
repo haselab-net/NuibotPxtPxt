@@ -143,7 +143,7 @@ compileDir("pxteditor", ["built/pxtlib.js", "built/pxtblockly.js"])
 compileDir("cli", ["built/pxtlib.js", "built/pxtsim.js", "built/pxtcompiler.js"])
 compileDir("backendutils", ['pxtlib/commonutil.ts', 'pxtlib/docsrender.ts'])
 // compile softrobot library
-compileDir("softrobot", ['built/pxtlib.js'])
+compileDir("softrobot", ['built/pxtlib.js', 'pxtlib/commonutil.ts'])
 file("built/web/pxtweb.js", expand(["docfiles/pxtweb"]), { async: true }, function () { tscIn(this, "docfiles/pxtweb", "built") })
 
 task("karma", ["blocklycompilertest"], function () {

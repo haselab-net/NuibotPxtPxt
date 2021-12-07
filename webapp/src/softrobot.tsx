@@ -1222,7 +1222,7 @@ export namespace dialog.robotSettings {
 
       return (
         <tr key={this.props.parameterName}>
-          <td data-label="Parameter">{lf(this.props.label)}</td>
+          <td data-label="Parameter">{this.props.label}</td>
           <td data-label="Value">
             {this.renderInput(false)}
           </td>
@@ -1295,7 +1295,7 @@ export namespace dialog.robotSettings {
                     parameterName={"lengthMin" + i.toString()}
                     parameterVal={softrobot.device.robotState.motor[i].lengthMin}
                     saveParameter={val => (softrobot.device.robotState.motor[i].lengthMin = val as number)}
-                    label={`Minumum length ${i.toString()}`}
+                    label={lf("Minumum length {0}", i.toString())}
                     display='tr'
                   ></SettingItemInput>
                 );
@@ -1305,7 +1305,7 @@ export namespace dialog.robotSettings {
                     parameterName={"lengthMax" + i.toString()}
                     parameterVal={softrobot.device.robotState.motor[i].lengthMax}
                     saveParameter={val => (softrobot.device.robotState.motor[i].lengthMax = val as number)}
-                    label={`Maximum length ${i.toString()}`}
+                    label={lf("Maximum length {0}", i.toString())}
                     display='tr'
                   ></SettingItemInput>
                 );

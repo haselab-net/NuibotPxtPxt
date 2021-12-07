@@ -49,44 +49,44 @@ namespace softrobot.device {
                         type: util.cDataType.uint8,
                         value: false,
                         description: "Start JS when robot is switch on",
-                        label: "Auto start",
+                        label: lf("Auto start"),
                         // validator: () => true
                     },
                     heatLimit0: {                           // TODO check wether heat limit num would change
                         type: util.cDataType.int32,
                         value: 0,
                         description: "",
-                        label: "Heat limit 0",
+                        label: lf("Heat limit 0"),
                     },
                     heatRelease0: {
                         type: util.cDataType.int32,
                         value: 0,
                         description: "",
-                        label: "Heat release 0",
+                        label: lf("Heat release 0"),
                     },
                     heatLimit1: {
                         type: util.cDataType.int32,
                         value: 0,
                         description: "",
-                        label: "Heat limit 1",
+                        label: lf("Heat limit 1"),
                     },
                     heatRelease1: {
                         type: util.cDataType.int32,
                         value: 0,
                         description: "",
-                        label: "Heat release 1",
+                        label: lf("Heat release 1"),
                     },
                     heatLimit2: {
                         type: util.cDataType.int32,
                         value: 0,
                         description: "",
-                        label: "Heat limit 2",
+                        label: lf("Heat limit 2"),
                     },
                     heatRelease2: {
                         type: util.cDataType.int32,
                         value: 0,
                         description: "",
-                        label: "Heat release 2",
+                        label: lf("Heat release 2"),
                     },
                 }
             }

@@ -176,7 +176,7 @@ export abstract class ToolboxEditor extends srceditor.Editor {
                     }
 
                     // Prepare the category
-                    let categoryName = lf("{id:category}" + ts.pxtc.Util.capitalize(ns));
+                    let categoryName = lf("{id:category}{0}", ts.pxtc.Util.capitalize(ns));
                     if (categoryName == ts.pxtc.Util.capitalize(ns) && md.block) categoryName = md.block;
                     let category: toolbox.ToolboxCategory = {
                         nameid: ns,
