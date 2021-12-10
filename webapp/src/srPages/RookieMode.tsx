@@ -168,7 +168,7 @@ export class RookieMode extends React.Component<RookieModeProps, RookieModeState
             <div className="ui basic buttons">
               <sui.Button
                   className={`primary download-button download-button-full`}
-                  title={"Download to Nuibot"}
+                  title={lf("Download to Nuibot")}
                   onClick={this.sendToNuibot}
               >{lf("Download")}</sui.Button>
               <sui.Button key='motorcalibration' title={lf("Calibrate motors")} onClick={this.props.parent.calibrationSoftRobot}>{lf("Calibrate")}</sui.Button>

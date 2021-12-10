@@ -911,7 +911,7 @@ export class NameInputs extends React.Component<NameInputsProps, NameInputsState
             }
           }}
         />
-        <div className="ui basic label">ms</div>
+        <div className="ui basic label">{lf("ms")}</div>
       </div>
     )
     return <div id="movement-editor-name-inputs" style={this.containerStyle}>

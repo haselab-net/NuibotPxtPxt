@@ -48,7 +48,7 @@ namespace softrobot.device {
                     auto_start: {
                         type: util.cDataType.uint8,
                         value: false,
-                        description: "Start JS when robot is switch on",
+                        description: lf("Start JS when robot is switch on"),
                         label: lf("Auto start"),
                         // validator: () => true
                     },
@@ -56,37 +56,37 @@ namespace softrobot.device {
                         type: util.cDataType.int32,
                         value: 0,
                         description: "",
-                        label: lf("Heat limit 0"),
+                        label: lf("Heat limit {0}", 0),
                     },
                     heatRelease0: {
                         type: util.cDataType.int32,
                         value: 0,
                         description: "",
-                        label: lf("Heat release 0"),
+                        label: lf("Heat release {0}", 0),
                     },
                     heatLimit1: {
                         type: util.cDataType.int32,
                         value: 0,
                         description: "",
-                        label: lf("Heat limit 1"),
+                        label: lf("Heat limit {0}", 1),
                     },
                     heatRelease1: {
                         type: util.cDataType.int32,
                         value: 0,
                         description: "",
-                        label: lf("Heat release 1"),
+                        label: lf("Heat release {0}", 1),
                     },
                     heatLimit2: {
                         type: util.cDataType.int32,
                         value: 0,
                         description: "",
-                        label: lf("Heat limit 2"),
+                        label: lf("Heat limit {0}", 2),
                     },
                     heatRelease2: {
                         type: util.cDataType.int32,
                         value: 0,
                         description: "",
-                        label: lf("Heat release 2"),
+                        label: lf("Heat release {0}", 2),
                     },
                 }
             }
