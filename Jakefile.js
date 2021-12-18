@@ -133,7 +133,7 @@ file('built/pxt-common.json', expand(['libs/pxt-common'], ".ts"), function () {
 })
 
 compileDir("pxtlib", "built/typescriptServices.d.ts")
-compileDir("softrobot", ['pxtlib/commonutil.ts', 'built/pxtlib.js'])// compile softrobot library
+compileDir("softrobot", ['built/pxtlib.js'])// compile softrobot library
 compileDir("pxtcompiler", ["built/pxtlib.js"])
 compileDir("pxtwinrt", ["built/pxtlib.js"])
 compileDir("pxtblocks", ["built/pxtlib.js", "built/pxtsim.js", "built/pxtcompiler.js", "built/softrobot.js"])

@@ -1,4 +1,25 @@
+const anyWindow = window as any
+if (!anyWindow._lfForSoftRobotUtil){
+  anyWindow._lfForSoftRobotUtil = (f:string)=>{
+    //console.error('lf called before initialization.')
+    return `lf called before init:${f}`
+  }
+}
+anyWindow._setLfForSoftRobotUtil = (lf: any)=>{
+  anyWindow._lfForSoftRobotUtil = lf
+}
+
+function setLfForSoftRobotUtil(lf: any){
+  (window as any)._lfForSoftRobotUtil = lf
+}
+
+
+
 namespace softrobot.util {
+  export function lf(format:string, ...args:any[]): string{
+    return anyWindow._lfForSoftRobotUtil(format, ...args)
+  }
+
   export namespace mobx {
     export type Boxed<T> = {
       get: () => T,

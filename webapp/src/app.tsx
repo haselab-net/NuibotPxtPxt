@@ -121,6 +121,7 @@ export class ProjectView
 
     constructor(props: IAppProps) {
         super(props);
+
         document.title = pxt.appTarget.title || pxt.appTarget.name;
         this.reload = false; //set to true in case of reset of the project where we are going to reload the page.
         this.settings = JSON.parse(pxt.storage.getLocal("editorSettings") || "{}")
@@ -257,6 +258,17 @@ export class ProjectView
 
         if (this.editor && this.editor.isReady) {
             this.updateEditorFile();
+        }
+        const boardView = document.getElementById("boardview")
+        const iframes = boardView.getElementsByTagName('iframe')
+        if (iframes.length){
+            const cwin = (iframes.item(0).contentWindow as any)
+            const win = cwin.window
+            win._lfForSoftRobotUtil = pxt.Util.lf;
+            (window as any)._lfForSoftRobotUtil = pxt.Util.lf
+            if (win._SetLfForSoftRobotUtil){
+                win._SetLfForSoftRobotUtil(pxt.Util.lf)
+            }
         }
     }
 
@@ -554,7 +566,8 @@ export class ProjectView
     private autoInfoDisposer: mobx.IReactionDisposer
     public componentDidMount() {
         this.allEditors.forEach(e => e.prepare())
-        simulator.init(document.getElementById("boardview"), {
+        const boardView = document.getElementById("boardview")
+        simulator.init(boardView, {
             orphanException: brk => {
                 // TODO: start debugging session
                 // TODO: user friendly error message
@@ -578,6 +591,10 @@ export class ProjectView
             editor: this.state.header ? this.state.header.editor : ''
         })
         this.forceUpdate(); // we now have editors prepared
+        const iframes = boardView.getElementsByTagName('iframe')
+        if (iframes.length){
+            (iframes.item(0).contentWindow as any)._lfForSoftRobotUtil = pxt.Util.lf
+        }
 
         // bind callback for pair and unpair
         let init: boolean = true

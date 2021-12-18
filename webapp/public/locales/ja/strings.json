@@ -385,7 +385,8 @@
   "UI": "モータ位置の上限・下限",
   "Parameter": "項目",
   "Hardware": "電源ON時と加熱防止の設定",
-  "Heat limit 0": "モーター0の熱の許容量",
+  "Heat limit {0}": "モーター{0}の熱の許容量",
+  "Heat release {0}": "モーター{0}の放熱量",
   "Minumum length {0}": "モーター{0}の最短値",
   "Maximum length {0}": "モーター{0}の最長値",
 

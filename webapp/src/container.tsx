@@ -412,6 +412,7 @@ export class MainMenu extends data.Component<ISettingsProps, {}> {
         const javascriptActive = this.props.parent.isJavaScriptActive();
 
         const runTooltip = isRunning ? lf("Stop the simulator") : lf("Start the simulator");
+        softrobot.device.robotInfo.initializeNvsSettings()
 
         /* tslint:disable:react-a11y-anchors */
         return <div id="mainmenu" className={`ui borderless fixed ${targetTheme.invertedMenu ? `inverted` : ''} menu`} role="menubar" aria-label={lf("Main menu")}>

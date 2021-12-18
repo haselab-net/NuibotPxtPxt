@@ -3,6 +3,9 @@
  */
 
 namespace softrobot.device {
+
+    const lf = softrobot.util.lf
+
     export enum ParameterKey {
         nuibotIp = "NuibotIP",
         nuibotId = "NuibotID"
@@ -44,51 +47,54 @@ namespace softrobot.device {
 
         constructor() {
             this.initializeNvsSettings = function () {
-                this.nvsSettings = {
-                    auto_start: {
-                        type: util.cDataType.uint8,
-                        value: false,
-                        description: lf("Start JS when robot is switch on"),
-                        label: lf("Auto start"),
-                        // validator: () => true
-                    },
-                    heatLimit0: {                           // TODO check wether heat limit num would change
-                        type: util.cDataType.int32,
-                        value: 0,
-                        description: "",
-                        label: lf("Heat limit {0}", 0),
-                    },
-                    heatRelease0: {
-                        type: util.cDataType.int32,
-                        value: 0,
-                        description: "",
-                        label: lf("Heat release {0}", 0),
-                    },
-                    heatLimit1: {
-                        type: util.cDataType.int32,
-                        value: 0,
-                        description: "",
-                        label: lf("Heat limit {0}", 1),
-                    },
-                    heatRelease1: {
-                        type: util.cDataType.int32,
-                        value: 0,
-                        description: "",
-                        label: lf("Heat release {0}", 1),
-                    },
-                    heatLimit2: {
-                        type: util.cDataType.int32,
-                        value: 0,
-                        description: "",
-                        label: lf("Heat limit {0}", 2),
-                    },
-                    heatRelease2: {
-                        type: util.cDataType.int32,
-                        value: 0,
-                        description: "",
-                        label: lf("Heat release {0}", 2),
-                    },
+                const update = () => {
+                    this.nvsSettings = {
+                        auto_start: {
+                            type: util.cDataType.uint8,
+                            value: false,
+                            description: lf("Start JS when robot is switch on"),
+                            label: lf("Auto start"),
+                            // validator: () => true
+                        },
+                        heatLimit0: {                           // TODO check wether heat limit num would change
+                            type: util.cDataType.int32,
+                            value: 0,
+                            description: "",
+                            label: lf("Heat limit {0}", 0),
+                        },
+                        heatRelease0: {
+                            type: util.cDataType.int32,
+                            value: 0,
+                            description: "",
+                            label: lf("Heat release {0}", 0),
+                        },
+                        heatLimit1: {
+                            type: util.cDataType.int32,
+                            value: 0,
+                            description: "",
+                            label: lf("Heat limit {0}", 1),
+                        },
+                        heatRelease1: {
+                            type: util.cDataType.int32,
+                            value: 0,
+                            description: "",
+                            label: lf("Heat release {0}", 1),
+                        },
+                        heatLimit2: {
+                            type: util.cDataType.int32,
+                            value: 0,
+                            description: "",
+                            label: lf("Heat limit {0}", 2),
+                        },
+                        heatRelease2: {
+                            type: util.cDataType.int32,
+                            value: 0,
+                            description: "",
+                            label: lf("Heat release {0}", 2),
+                        },
+                    }
                 }
+                update()
             }
             this.initialize = function () {
                 this.systemId = 0;
