@@ -1421,7 +1421,7 @@ export namespace component {
     render() {
       return (
         <select
-          className={this.state.locked ? "ui disabled dropdown" : "ui dropdown"}
+          className={this.state.locked ? 'ui disabled dropdown' : 'ui dropdown'}
           defaultValue="0"
           title={lf("Choose control mode")}
           onChange={(event: React.ChangeEvent<HTMLSelectElement>) =>
@@ -1442,10 +1442,12 @@ export namespace component {
   interface PairButtonProps {
     pair: () => void;
     unpair: () => void;
+    showText: boolean;
   }
   interface PairButtonStatus {
     nuibotId: string;
     pairStatus: softrobot.socket.PairStatus;
+    showText: boolean;
   }
   export class PairButton extends React.Component<PairButtonProps, PairButtonStatus> {
     constructor(props: PairButtonProps) {
@@ -1453,7 +1455,8 @@ export namespace component {
 
       this.state = {
         nuibotId: "",
-        pairStatus: softrobot.socket.PairStatus.Unpaired
+        pairStatus: softrobot.socket.PairStatus.Unpaired,
+        showText: props.showText
       };
 
       softrobot.message_command.onRcvCIBoardInfoMessage.push(() => {
@@ -1470,15 +1473,6 @@ export namespace component {
     }
 
     render() {
-      const content =
-        this.state.pairStatus === softrobot.socket.PairStatus.Pairing
-          ? lf("Pairing")
-          : [
-              <i className="icon wifi" key="wifi-icon"></i>,
-              this.state.pairStatus === softrobot.socket.PairStatus.Paired
-                ? this.state.nuibotId + " " + lf("Paired")
-                : lf("Pair")
-            ];
       const buttonClass = classNames(
         "ui",
         "small",
@@ -1500,9 +1494,11 @@ export namespace component {
               ? lf("Pair your Nuibot")
               : lf("Unpair Nuibot")
           }
-          icon = {this.state.pairStatus === softrobot.socket.PairStatus.Pairing ? undefined : 'wifi'} 
-          text = {this.state.pairStatus === softrobot.socket.PairStatus.Pairing ? lf("Pairing") : 
-            this.state.pairStatus === softrobot.socket.PairStatus.Paired ? lf("Paired") : lf("Pair")}
+          icon = {this.state.pairStatus === softrobot.socket.PairStatus.Pairing ? undefined : 'wifi'}
+          text = {this.state.showText ? (
+            this.state.pairStatus === softrobot.socket.PairStatus.Pairing ? lf("Pairing") : 
+            this.state.pairStatus === softrobot.socket.PairStatus.Paired ? lf("Paired") : lf("Pair")
+          ) : ''}
           disabled={this.state.pairStatus === softrobot.socket.PairStatus.Pairing}
         >
         </sui.Button>
@@ -1511,8 +1507,11 @@ export namespace component {
   }
 
   export class WrappedPairButton extends React.Component<{}> {
-    constructor(props: {}) {
-      super(props)
+    props: {showText: boolean}
+    
+    constructor(props: {showText: boolean}) {
+      super({})
+      this.props = props
 
       this.pair = this.pair.bind(this);
       this.unpair = this.unpair.bind(this);
@@ -1555,7 +1554,7 @@ export namespace component {
     }
 
     render() {
-      return <PairButton pair={this.pair} unpair={this.unpair}/>
+      return <PairButton {...this.props} pair={this.pair} unpair={this.unpair} />
     }
   }
 }

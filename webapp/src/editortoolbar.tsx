@@ -199,7 +199,6 @@ export class EditorToolbar extends data.Component<ISettingsProps, EditorToolbarS
       targetTheme.disableFileAccessinMaciOs && (pxt.BrowserUtils.isIOS() || pxt.BrowserUtils.isMac());
     const showSave = !readOnly && !isController && !targetTheme.saveInMenu && !tutorial && !disableFileAccessinMaciOs;
     const compile = pxt.appTarget.compile;
-    const compileBtn = compile.hasHex || compile.saveAsPNG;
     const compileTooltip = lf("Upload your code to the {0}", targetTheme.boardName);
     const compileLoading = !!compiling;
     const runTooltip = running ? lf("Stop the simulator") : lf("Start the simulator");
@@ -243,160 +242,171 @@ export class EditorToolbar extends data.Component<ISettingsProps, EditorToolbarS
 
     const isRtl = pxt.Util.isUserLanguageRtl();
 
+    const nuibotControls = <React.Fragment>
+      {this.state.paired && softRobot.compile.isNative ? (
+        <div className="ui icon small buttons">
+        <EditorToolbarButton
+          icon={downloadIcon}
+          className={`primary large download-button ${downloadButtonClasses}`}
+          text={collapsed ? '' : downloadText}
+          title={compileTooltip}
+          onButtonClick={this.softRobotCompile}
+          view="computer"
+        />
+        </div>
+      ) : (
+        undefined
+      )}
+      <sr.component.WrappedPairButton showText={!collapsed}/>
+      {this.state.paired ? (
+        <sr.component.ControlModeDropdown
+          setControlMode={this.setControlMode}
+        ></sr.component.ControlModeDropdown>
+      ) : (
+        undefined
+      )}
+    </React.Fragment>
+
+
     return (
       <div className="ui equal width grid right aligned padded">
         <div className="column mobile only">
           {collapsed ? (
-            <div className="ui grid">
+            <div style={{height: '100%', display: 'flex', alignItems: 'center'}}>
               {!targetTheme.bigRunButton ? (
-                <div className="left aligned column six wide">
-                  <div className="ui icon small buttons">
-                    {showCollapsed ? (
-                      <EditorToolbarButton
-                        icon={`${collapsed ? "toggle up" : "toggle down"}`}
-                        className={`collapse-button ${collapsed ? "collapsed" : ""} ${
-                          hideEditorFloats ? "disabled" : ""
-                        }`}
-                        ariaLabel={lf("{0}, {1}", collapseTooltip, hideEditorFloats ? lf("Disabled") : "")}
-                        title={collapseTooltip}
-                        onButtonClick={this.toggleCollapse}
-                        view="mobile"
-                      />
-                    ) : (
-                      undefined
-                    )}
-                    {headless && run ? (
-                      <EditorToolbarButton
-                        className={`play-button ${running ? "stop" : "play"}`}
-                        key="runmenubtn"
-                        icon={running ? "stop" : "play"}
-                        title={runTooltip}
-                        onButtonClick={this.startStopSimulator}
-                        view="mobile"
-                      />
-                    ) : (
-                      undefined
-                    )}
-                    {headless && restart ? (
-                      <EditorToolbarButton
-                        key="restartbtn"
-                        className={`restart-button`}
-                        icon="refresh"
-                        title={restartTooltip}
-                        onButtonClick={this.restartSimulator}
-                        view="mobile"
-                      />
-                    ) : (
-                      undefined
-                    )}
-                    {headless && trace ? (
-                      <EditorToolbarButton
-                        key="tracebtn"
-                        className={`trace-button ${tracing ? "orange" : ""}`}
-                        icon="xicon turtle"
-                        title={traceTooltip}
-                        onButtonClick={this.toggleTrace}
-                        view="mobile"
-                      />
-                    ) : (
-                      undefined
-                    )}
-                    {headless && debug ? (
-                      <EditorToolbarButton
-                        key="debugbtn"
-                        className={`debug-button ${debugging ? "orange" : ""}`}
-                        icon="xicon bug"
-                        title={debugTooltip}
-                        onButtonClick={this.toggleDebugging}
-                        view="mobile"
-                      />
-                    ) : (
-                      undefined
-                    )}
-                    {compileBtn ? (
-                      <EditorToolbarButton
-                        className={`primary download-button download-button-full ${downloadButtonClasses}`}
-                        icon={downloadIcon}
-                        title={compileTooltip}
-                        ariaLabel={lf("Download your code")}
-                        onButtonClick={this.compile}
-                        view="mobile"
-                      />
-                    ) : (
-                      undefined
-                    )}
-                  </div>
+              <div className="ui icon small buttons">
+                {showCollapsed ? (
+                  <EditorToolbarButton
+                    icon={`${collapsed ? "toggle up" : "toggle down"}`}
+                    className={`collapse-button ${collapsed ? "collapsed" : ""} ${
+                      hideEditorFloats ? "disabled" : ""
+                    }`}
+                    ariaLabel={lf("{0}, {1}", collapseTooltip, hideEditorFloats ? lf("Disabled") : "")}
+                    title={collapseTooltip}
+                    onButtonClick={this.toggleCollapse}
+                    view="mobile"
+                  />
+                ) : (
+                  undefined
+                )}
+                {headless && run ? (
+                  <EditorToolbarButton
+                    className={`play-button ${running ? "stop" : "play"}`}
+                    key="runmenubtn"
+                    icon={running ? "stop" : "play"}
+                    title={runTooltip}
+                    onButtonClick={this.startStopSimulator}
+                    view="mobile"
+                  />
+                ) : (
+                  undefined
+                )}
+                {headless && restart ? (
+                  <EditorToolbarButton
+                    key="restartbtn"
+                    className={`restart-button`}
+                    icon="refresh"
+                    title={restartTooltip}
+                    onButtonClick={this.restartSimulator}
+                    view="mobile"
+                  />
+                ) : (
+                  undefined
+                )}
+                {headless && trace ? (
+                  <EditorToolbarButton
+                    key="tracebtn"
+                    className={`trace-button ${tracing ? "orange" : ""}`}
+                    icon="xicon turtle"
+                    title={traceTooltip}
+                    onButtonClick={this.toggleTrace}
+                    view="mobile"
+                  />
+                ) : (
+                  undefined
+                )}
+                {headless && debug ? (
+                  <EditorToolbarButton
+                    key="debugbtn"
+                    className={`debug-button ${debugging ? "orange" : ""}`}
+                    icon="xicon bug"
+                    title={debugTooltip}
+                    onButtonClick={this.toggleDebugging}
+                    view="mobile"
+                  />
+                ) : (
+                  undefined
+                )}
+            </div>
+          ) : (
+            undefined
+          )}
+              {!readOnly ? (
+                <div className="ui icon small">
+                  {showSave ? (
+                    <EditorToolbarButton
+                      icon="save"
+                      className={`editortools-btn save-editortools-btn ${saveButtonClasses}`}
+                      title={lf("Save")}
+                      ariaLabel={lf("Save the project")}
+                      onButtonClick={this.saveFile}
+                      view="mobile"
+                    />
+                  ) : (
+                    undefined
+                  )}
+                  {nuibotControls}
+                  {showUndoRedo ? (
+                    <EditorToolbarButton
+                      icon="xicon undo"
+                      className={`editortools-btn undo-editortools-btn} ${!hasUndo ? "disabled" : ""}`}
+                      ariaLabel={lf("{0}, {1}", lf("Undo"), !hasUndo ? lf("Disabled") : "")}
+                      title={lf("Undo")}
+                      onButtonClick={this.undo}
+                      view="mobile"
+                    />
+                  ) : (
+                    undefined
+                  )}
                 </div>
               ) : (
                 undefined
               )}
-              <div className={`column right aligned ${targetTheme.bigRunButton ? "sixteen" : "ten"} wide`}>
-                {!readOnly ? (
-                  <div className="ui icon small buttons">
-                    {showSave ? (
-                      <EditorToolbarButton
-                        icon="save"
-                        className={`editortools-btn save-editortools-btn ${saveButtonClasses}`}
-                        title={lf("Save")}
-                        ariaLabel={lf("Save the project")}
-                        onButtonClick={this.saveFile}
-                        view="mobile"
-                      />
-                    ) : (
-                      undefined
-                    )}
-                    {showUndoRedo ? (
-                      <EditorToolbarButton
-                        icon="xicon undo"
-                        className={`editortools-btn undo-editortools-btn} ${!hasUndo ? "disabled" : ""}`}
-                        ariaLabel={lf("{0}, {1}", lf("Undo"), !hasUndo ? lf("Disabled") : "")}
-                        title={lf("Undo")}
-                        onButtonClick={this.undo}
-                        view="mobile"
-                      />
-                    ) : (
-                      undefined
-                    )}
-                  </div>
-                ) : (
-                  undefined
-                )}
-                {showZoomControls ? (
-                  <div className="ui icon small buttons">
-                    <EditorToolbarButton
-                      icon="minus circle"
-                      className="editortools-btn zoomout-editortools-btn"
-                      title={lf("Zoom Out")}
-                      onButtonClick={this.zoomOut}
-                      view="mobile"
-                    />
-                    <EditorToolbarButton
-                      icon="plus circle"
-                      className="editortools-btn zoomin-editortools-btn"
-                      title={lf("Zoom In")}
-                      onButtonClick={this.zoomIn}
-                      view="mobile"
-                    />
-                  </div>
-                ) : (
-                  undefined
-                )}
-                {targetTheme.bigRunButton ? (
-                  <div className="big-play-button-wrapper">
-                    <EditorToolbarButton
-                      role="menuitem"
-                      className={`big-play-button play-button ${running ? "stop" : "play"}`}
-                      key="runmenubtn"
-                      icon={running ? "stop" : "play"}
-                      title={bigRunButtonTooltip}
-                      onButtonClick={this.startStopSimulator}
-                      view="mobile"
-                    />
-                  </div>
-                ) : (
-                  undefined
-                )}
-              </div>
+              {showZoomControls ? (
+                <div className="ui icon small buttons">
+                  <EditorToolbarButton
+                    icon="minus circle"
+                    className="editortools-btn zoomout-editortools-btn"
+                    title={lf("Zoom Out")}
+                    onButtonClick={this.zoomOut}
+                    view="mobile"
+                  />
+                  <EditorToolbarButton
+                    icon="plus circle"
+                    className="editortools-btn zoomin-editortools-btn"
+                    title={lf("Zoom In")}
+                    onButtonClick={this.zoomIn}
+                    view="mobile"
+                  />
+                </div>
+              ) : (
+                undefined
+              )}
+              {targetTheme.bigRunButton ? (
+                <div className="big-play-button-wrapper">
+                  <EditorToolbarButton
+                    role="menuitem"
+                    className={`big-play-button play-button ${running ? "stop" : "play"}`}
+                    key="runmenubtn"
+                    icon={running ? "stop" : "play"}
+                    title={bigRunButtonTooltip}
+                    onButtonClick={this.startStopSimulator}
+                    view="mobile"
+                  />
+                </div>
+              ) : (
+                undefined
+              )}
             </div>
           ) : (
             <div className="ui equal width grid">
@@ -444,13 +454,14 @@ export class EditorToolbar extends data.Component<ISettingsProps, EditorToolbarS
                   undefined
                 )}
               </div>
-              <div className="three wide column"></div>
+              <div className="five wide column"></div>
               <div className="column">
                 <div className="ui grid">
                   {readOnly || !showUndoRedo ? (
                     undefined
                   ) : (
                     <div className="row">
+                      {nuibotControls}
                       <div className="column">
                         <div className="ui icon large buttons">
                           <EditorToolbarButton
@@ -487,17 +498,6 @@ export class EditorToolbar extends data.Component<ISettingsProps, EditorToolbarS
                             icon="xicon bug"
                             title={debugTooltip}
                             onButtonClick={this.toggleDebugging}
-                            view="mobile"
-                          />
-                        ) : (
-                          undefined
-                        )}
-                        {compileBtn ? (
-                          <EditorToolbarButton
-                            className={`primary download-button download-button-full ${downloadButtonClasses}`}
-                            icon={downloadIcon}
-                            title={compileTooltip}
-                            onButtonClick={this.compile}
                             view="mobile"
                           />
                         ) : (
@@ -580,17 +580,6 @@ export class EditorToolbar extends data.Component<ISettingsProps, EditorToolbarS
                     ) : (
                       undefined
                     )}
-                    {this.state.paired ? (
-                      <EditorToolbarButton
-                        className={`primary download-button download-button-full ${downloadButtonClasses}`}
-                        icon={downloadIcon}
-                        title={compileTooltip}
-                        onButtonClick={this.softRobotCompile}
-                        view="tablet"
-                      />
-                    ) : (
-                      undefined
-                    )}
                   </div>
                 </div>
               ) : (
@@ -610,96 +599,70 @@ export class EditorToolbar extends data.Component<ISettingsProps, EditorToolbarS
                     ) : (
                       undefined
                     )}
-                    {this.state.paired ? (
-                      <EditorToolbarButton
-                        className={`primary download-button download-button-full ${downloadButtonClasses}`}
-                        icon={downloadIcon}
-                        text={downloadText}
-                        title={compileTooltip}
-                        onButtonClick={this.softRobotCompile}
-                        view="tablet"
-                      />
-                    ) : (
-                      undefined
-                    )}
                   </div>
                 </div>
               )}
-              <div className={`column right aligned`}>
-                {this.state.paired && softRobot.compile.isNative ? (
-                  <div className="ui icon small buttons">
-                  <EditorToolbarButton
-                    icon={downloadIcon}
-                    className={`primary large download-button ${downloadButtonClasses}`}
-                    text={downloadText}
-                    title={compileTooltip}
-                    onButtonClick={this.softRobotCompile}
-                    view="computer"
-                  />
-                  </div>
-                ) : (
-                  undefined
-                )}
-
-                <sr.component.WrappedPairButton />
-                {this.state.paired ? <sr.component.ControlModeDropdown setControlMode={this.setControlMode}></sr.component.ControlModeDropdown> : undefined}
-                {showUndoRedo ? (
-                  <div className="ui icon small buttons">
-                    <EditorToolbarButton
-                      icon="xicon undo"
-                      className={`editortools-btn undo-editortools-btn ${!hasUndo ? "disabled" : ""}`}
-                      ariaLabel={lf("{0}, {1}", lf("Undo"), !hasUndo ? lf("Disabled") : "")}
-                      title={lf("Undo")}
-                      onButtonClick={this.undo}
-                      view="tablet"
-                    />
-                    <EditorToolbarButton
-                      icon="xicon redo"
-                      className={`editortools-btn redo-editortools-btn ${!hasRedo ? "disabled" : ""}`}
-                      ariaLabel={lf("{0}, {1}", lf("Red"), !hasRedo ? lf("Disabled") : "")}
-                      title={lf("Redo")}
-                      onButtonClick={this.redo}
-                      view="tablet"
-                    />
-                  </div>
-                ) : (
-                  undefined
-                )}
-                {false && showZoomControls ? (
-                  <div className="ui icon small buttons">
-                    <EditorToolbarButton
-                      icon="minus circle"
-                      className="editortools-btn zoomout-editortools-btn"
-                      title={lf("Zoom Out")}
-                      onButtonClick={this.zoomOut}
-                      view="tablet"
-                    />
-                    <EditorToolbarButton
-                      icon="plus circle"
-                      className="editortools-btn zoomin-editortools-btn"
-                      title={lf("Zoom In")}
-                      onButtonClick={this.zoomIn}
-                      view="tablet"
-                    />
-                  </div>
-                ) : (
-                  undefined
-                )}
-                {targetTheme.bigRunButton ? (
-                  <div className="big-play-button-wrapper">
-                    <EditorToolbarButton
-                      role="menuitem"
-                      className={`big-play-button play-button ${running ? "stop" : "play"}`}
-                      key="runmenubtn"
-                      icon={running ? "stop" : "play"}
-                      title={bigRunButtonTooltip}
-                      onButtonClick={this.startStopSimulator}
-                      view="tablet"
-                    />
-                  </div>
-                ) : (
-                  undefined
-                )}
+              <div className={`right aligned`}>
+                <div style={{height: '100%', display: 'flex', alignItems: 'center'}}>
+                  {nuibotControls}
+                  {showUndoRedo ? (
+                    <div className="ui icon small buttons">
+                      <EditorToolbarButton
+                        icon="xicon undo"
+                        className={`editortools-btn undo-editortools-btn ${!hasUndo ? "disabled" : ""}`}
+                        ariaLabel={lf("{0}, {1}", lf("Undo"), !hasUndo ? lf("Disabled") : "")}
+                        title={lf("Undo")}
+                        onButtonClick={this.undo}
+                        view="tablet"
+                      />
+                      <EditorToolbarButton
+                        icon="xicon redo"
+                        className={`editortools-btn redo-editortools-btn ${!hasRedo ? "disabled" : ""}`}
+                        ariaLabel={lf("{0}, {1}", lf("Red"), !hasRedo ? lf("Disabled") : "")}
+                        title={lf("Redo")}
+                        onButtonClick={this.redo}
+                        view="tablet"
+                      />
+                    </div>
+                  ) : (
+                    undefined
+                  )}
+                  {showZoomControls ? (
+                    <div className="ui icon small buttons">
+                      <EditorToolbarButton
+                        icon="minus circle"
+                        className="editortools-btn zoomout-editortools-btn"
+                        title={lf("Zoom Out")}
+                        onButtonClick={this.zoomOut}
+                        view="tablet"
+                      />
+                      <EditorToolbarButton
+                        icon="plus circle"
+                        className="editortools-btn zoomin-editortools-btn"
+                        title={lf("Zoom In")}
+                        onButtonClick={this.zoomIn}
+                        view="tablet"
+                      />
+                    </div>
+                  ) : (
+                    undefined
+                  )}
+                  {targetTheme.bigRunButton ? (
+                    <div className="big-play-button-wrapper">
+                      <EditorToolbarButton
+                        role="menuitem"
+                        className={`big-play-button play-button ${running ? "stop" : "play"}`}
+                        key="runmenubtn"
+                        icon={running ? "stop" : "play"}
+                        title={bigRunButtonTooltip}
+                        onButtonClick={this.startStopSimulator}
+                        view="tablet"
+                      />
+                    </div>
+                  ) : (
+                    undefined
+                  )}
+                </div>
               </div>
             </div>
           ) : (
@@ -752,25 +715,8 @@ export class EditorToolbar extends data.Component<ISettingsProps, EditorToolbarS
               <div className="three wide column"></div>
               <div className="five wide column">
                 <div className="ui grid right aligned">
-                  {this.state.paired ? (
-                    <div className="row">
-                      <div className="column">
-                        <EditorToolbarButton
-                          role="menuitem"
-                          className={`primary large fluid download-button download-button-full ${downloadButtonClasses}`}
-                          icon={downloadIcon}
-                          text={downloadText}
-                          title={compileTooltip}
-                          onButtonClick={this.softRobotCompile}
-                          view="tablet"
-                        />
-                      </div>
-                    </div>
-                  ) : (
-                    undefined
-                  )}
                   {showProjectRename ? (
-                    <div className="row" style={compileBtn ? { paddingTop: 0 } : {}}>
+                    <div className="row">
                       <div className="column">
                         <div
                           className={`ui item small right ${
@@ -815,6 +761,7 @@ export class EditorToolbar extends data.Component<ISettingsProps, EditorToolbarS
                   {showUndoRedo || showZoomControls ? (
                     <div className="row">
                       <div className="column">
+                        {nuibotControls}
                         {showUndoRedo ? (
                           <div className="ui icon large buttons">
                             <EditorToolbarButton
@@ -965,31 +912,6 @@ export class EditorToolbar extends data.Component<ISettingsProps, EditorToolbarS
                     ) : (
                       undefined
                     )}
-                    {compileBtn ? (
-                      <EditorToolbarButton
-                        icon={downloadIcon}
-                        className={`primary large download-button ${downloadButtonClasses}`}
-                        title={compileTooltip}
-                        onButtonClick={this.compile}
-                        view="computer"
-                      />
-                    ) : (
-                      undefined
-                    )}
-                    {
-                      // download button for soft robot in editor tool bar
-                    }
-                    {/*this.state.paired && softRobot.compile.isNative ? (
-                      <EditorToolbarButton
-                        icon={downloadIcon}
-                        className={`primary large download-button ${downloadButtonClasses}`}
-                        title={compileTooltip}
-                        onButtonClick={this.softRobotCompile}
-                        view="computer"
-                      />
-                    ) : (
-                      undefined
-                    )*/}
                     {softRobot.test ? <sr.dialog.TestButton /> : undefined}
                   </div>
                 </div>
@@ -1018,33 +940,6 @@ export class EditorToolbar extends data.Component<ISettingsProps, EditorToolbarS
                   ) : (
                     undefined
                   )}
-                  {compileBtn ? (
-                    <EditorToolbarButton
-                      icon={downloadIcon}
-                      className={`primary download-button ${downloadButtonClasses}`}
-                      text={downloadText}
-                      title={compileTooltip}
-                      onButtonClick={this.compile}
-                      view="computer"
-                    />
-                  ) : (
-                    undefined
-                  )}
-                  {
-                    // download button for soft robot in editor tool bar
-                  }
-                  {/* this.state.paired && softRobot.compile.isNative ? (
-                    <EditorToolbarButton
-                      icon={downloadIcon}
-                      className={`primary download-button ${downloadButtonClasses}`}
-                      text={downloadText}
-                      title={compileTooltip}
-                      onButtonClick={this.softRobotCompile}
-                      view="computer"
-                    />
-                  ) : (
-                    undefined
-                  )*/}
                   {softRobot.test ? <sr.dialog.TestButton /> : undefined}
                 </div>
               )}
@@ -1085,28 +980,7 @@ export class EditorToolbar extends data.Component<ISettingsProps, EditorToolbarS
               undefined
             )}
             <div className="column right aligned">
-              {this.state.paired && softRobot.compile.isNative ? (
-                <div className="ui icon small buttons">
-                <EditorToolbarButton
-                  icon={downloadIcon}
-                  className={`primary large download-button ${downloadButtonClasses}`}
-                  text={downloadText}
-                  title={compileTooltip}
-                  onButtonClick={this.softRobotCompile}
-                  view="computer"
-                />
-                </div>
-              ) : (
-                undefined
-              )}
-              <sr.component.WrappedPairButton />
-              {this.state.paired ? (
-                <sr.component.ControlModeDropdown
-                  setControlMode={this.setControlMode}
-                ></sr.component.ControlModeDropdown>
-              ) : (
-                undefined
-              )}
+              {nuibotControls}
               {showUndoRedo ? (
                 <div className="ui icon small buttons">
                   <EditorToolbarButton

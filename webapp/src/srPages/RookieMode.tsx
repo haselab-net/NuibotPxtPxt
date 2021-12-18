@@ -182,7 +182,7 @@ export class RookieMode extends React.Component<RookieModeProps, RookieModeState
 
     private renderPairButton() {
       return <div style={this.pairButtonStyle}>
-        <component.WrappedPairButton />
+        <component.WrappedPairButton showText={true}/>
       </div>
     }
 
