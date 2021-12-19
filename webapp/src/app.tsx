@@ -260,15 +260,17 @@ export class ProjectView
             this.updateEditorFile();
         }
         const boardView = document.getElementById("boardview")
-        const iframes = boardView.getElementsByTagName('iframe')
-        if (iframes.length){
-            const cwin = (iframes.item(0).contentWindow as any)
-            const win = cwin.window
-            win._lfForSoftRobotUtil = pxt.Util.lf;
-            (window as any)._lfForSoftRobotUtil = pxt.Util.lf
-            if (win._SetLfForSoftRobotUtil){
-                win._SetLfForSoftRobotUtil(pxt.Util.lf)
-            }
+        if (boardView){
+            const iframes = boardView.getElementsByTagName('iframe')
+            if (iframes.length){
+                const cwin = (iframes.item(0).contentWindow as any)
+                const win = cwin.window
+                win._lfForSoftRobotUtil = pxt.Util.lf;
+                (window as any)._lfForSoftRobotUtil = pxt.Util.lf
+                if (win._SetLfForSoftRobotUtil){
+                    win._SetLfForSoftRobotUtil(pxt.Util.lf)
+                }
+            }    
         }
     }
 
@@ -591,9 +593,11 @@ export class ProjectView
             editor: this.state.header ? this.state.header.editor : ''
         })
         this.forceUpdate(); // we now have editors prepared
-        const iframes = boardView.getElementsByTagName('iframe')
-        if (iframes.length){
-            (iframes.item(0).contentWindow as any)._lfForSoftRobotUtil = pxt.Util.lf
+        if (boardView){
+            const iframes = boardView.getElementsByTagName('iframe')
+            if (iframes.length){
+                (iframes.item(0).contentWindow as any)._lfForSoftRobotUtil = pxt.Util.lf
+            }
         }
 
         // bind callback for pair and unpair
